@@ -5,6 +5,9 @@
     <File Path="Directory.Packages.props" />
     <File Path="global.json" />
   </Folder>
+  <Folder Name="/.github/">
+    <File Path=".github/workflows/ci.yml" />
+  </Folder>
   <Folder Name="/src/">
     <Project Path="src/ReviewAgent.Domain/ReviewAgent.Domain.csproj" />
     <Project Path="src/ReviewAgent.Application/ReviewAgent.Application.csproj" />
