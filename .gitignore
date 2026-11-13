@@ -1,0 +1,32 @@
+# Build output
+bin/
+obj/
+artifacts/
+TestResults/
+*.trx
+coverage*.xml
+
+# IDE
+.vs/
+.idea/
+.vscode/*
+!.vscode/extensions.json
+*.user
+*.suo
+
+# Local data and secrets
+*.db
+*.db-shm
+*.db-wal
+appsettings.*.local.json
+.env
+
+# Frontend
+node_modules/
+dist/
+web/test-results/
+web/playwright-report/
+
+# OS
+.DS_Store
+Thumbs.db
