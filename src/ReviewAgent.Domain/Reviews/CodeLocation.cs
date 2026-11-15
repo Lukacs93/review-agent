@@ -1,4 +1,5 @@
 using System.Globalization;
+using ReviewAgent.Domain.Reviews.Errors;
 
 namespace ReviewAgent.Domain.Reviews;
 
@@ -9,19 +10,19 @@ public sealed record CodeLocation
     {
         if (string.IsNullOrWhiteSpace(filePath))
         {
-            throw new DomainException("File path is required.");
+            throw new DomainException(ValueObjectErrors.FilePathRequired);
         }
 
         var normalized = filePath.Trim().Replace('\\', '/');
 
         if (normalized.StartsWith('/'))
         {
-            throw new DomainException("File path must be relative to the repository root.");
+            throw new DomainException(ValueObjectErrors.FilePathNotRelative);
         }
 
         if (line <= 0)
         {
-            throw new DomainException("Line number must be positive.");
+            throw new DomainException(ValueObjectErrors.LineNotPositive);
         }
 
         FilePath = normalized;

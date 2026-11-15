@@ -1,3 +1,5 @@
+using ReviewAgent.Domain.Reviews.Errors;
+
 namespace ReviewAgent.Domain.Reviews;
 
 /// <summary>
@@ -10,7 +12,7 @@ public sealed record RuleId
     {
         if (string.IsNullOrWhiteSpace(value))
         {
-            throw new DomainException("Rule ID is required.");
+            throw new DomainException(ValueObjectErrors.RuleIdRequired);
         }
 
         Value = value.Trim().ToUpperInvariant();
