@@ -1,4 +1,5 @@
 using ReviewAgent.Domain.Reviews;
+using ReviewAgent.Domain.Reviews.Errors;
 
 namespace ReviewAgent.Domain.Tests.Reviews;
 
@@ -21,11 +22,13 @@ public sealed class CodeLocationTests
     }
 
     [Theory]
-    [InlineData("", 1)]
-    [InlineData("/src/Order.cs", 1)]
-    [InlineData("src/Order.cs", 0)]
-    public void Invalid_location_is_rejected(string filePath, int line)
+    [InlineData("", 1, ValueObjectErrors.FilePathRequired)]
+    [InlineData("/src/Order.cs", 1, ValueObjectErrors.FilePathNotRelative)]
+    [InlineData("src/Order.cs", 0, ValueObjectErrors.LineNotPositive)]
+    public void Invalid_location_is_rejected(string filePath, int line, string expectedMessage)
     {
-        Assert.Throws<DomainException>(() => new CodeLocation(filePath, line));
+        var error = Assert.Throws<DomainException>(() => new CodeLocation(filePath, line));
+
+        Assert.Equal(expectedMessage, error.Message);
     }
 }

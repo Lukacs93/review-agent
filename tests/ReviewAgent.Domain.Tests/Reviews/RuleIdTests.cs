@@ -1,4 +1,5 @@
 using ReviewAgent.Domain.Reviews;
+using ReviewAgent.Domain.Reviews.Errors;
 
 namespace ReviewAgent.Domain.Tests.Reviews;
 
@@ -17,13 +18,17 @@ public sealed class RuleIdTests
     [InlineData("   ")]
     public void Empty_rule_id_is_rejected(string input)
     {
-        Assert.Throws<DomainException>(() => new RuleId(input));
+        var error = Assert.Throws<DomainException>(() => new RuleId(input));
+
+        Assert.Equal(ValueObjectErrors.RuleIdRequired, error.Message);
     }
 
     [Fact]
     public void Null_rule_id_is_rejected()
     {
-        Assert.Throws<DomainException>(() => new RuleId(null!));
+        var error = Assert.Throws<DomainException>(() => new RuleId(null!));
+
+        Assert.Equal(ValueObjectErrors.RuleIdRequired, error.Message);
     }
 
     [Fact]

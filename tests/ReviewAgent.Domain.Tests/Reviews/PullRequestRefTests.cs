@@ -1,4 +1,5 @@
 using ReviewAgent.Domain.Reviews;
+using ReviewAgent.Domain.Reviews.Errors;
 
 namespace ReviewAgent.Domain.Tests.Reviews;
 
@@ -34,12 +35,19 @@ public sealed class PullRequestRefTests
     }
 
     [Theory]
-    [InlineData("", RepositoryName, PullRequestNumber)]
-    [InlineData(RepositoryOwner, " ", PullRequestNumber)]
-    [InlineData(RepositoryOwner, RepositoryName, 0)]
-    [InlineData(RepositoryOwner, RepositoryName, -3)]
-    public void Invalid_reference_is_rejected(string repositoryOwner, string repositoryName, int pullRequestNumber)
+    [InlineData("", RepositoryName, PullRequestNumber, ValueObjectErrors.RepositoryOwnerRequired)]
+    [InlineData(RepositoryOwner, " ", PullRequestNumber, ValueObjectErrors.RepositoryNameRequired)]
+    [InlineData(RepositoryOwner, RepositoryName, 0, ValueObjectErrors.PullRequestNumberNotPositive)]
+    [InlineData(RepositoryOwner, RepositoryName, -3, ValueObjectErrors.PullRequestNumberNotPositive)]
+    public void Invalid_reference_is_rejected(
+        string repositoryOwner,
+        string repositoryName,
+        int pullRequestNumber,
+        string expectedMessage)
     {
-        Assert.Throws<DomainException>(() => new PullRequestRef(repositoryOwner, repositoryName, pullRequestNumber));
+        var error = Assert.Throws<DomainException>(
+            () => new PullRequestRef(repositoryOwner, repositoryName, pullRequestNumber));
+
+        Assert.Equal(expectedMessage, error.Message);
     }
 }
