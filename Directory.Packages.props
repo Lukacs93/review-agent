@@ -3,6 +3,11 @@
     <!-- ASP.NET Core -->
     <PackageVersion Include="Microsoft.AspNetCore.OpenApi" Version="10.0.0" />
 
+    <!-- Data access -->
+    <PackageVersion Include="Microsoft.EntityFrameworkCore.Design" Version="10.0.15" />
+    <PackageVersion Include="Microsoft.EntityFrameworkCore.Sqlite" Version="10.0.15" />
+    <PackageVersion Include="Microsoft.EntityFrameworkCore.Tools" Version="10.0.15" />
+
     <!-- Transitive pins (security fixes) -->
     <!-- GHSA-v5pm-xwqc-g5wc: stack overflow on circular schema references, fixed in 2.7.5 -->
     <PackageVersion Include="Microsoft.OpenApi" Version="2.7.5" />
