@@ -24,6 +24,9 @@ var app = builder.Build();
 if (app.Environment.IsDevelopment())
 {
     app.MapOpenApi();
+
+    // Swagger UI at /swagger shows the description that MapOpenApi produces and lets you try every endpoint.
+    app.UseSwaggerUI(options => options.SwaggerEndpoint("/openapi/v1.json", "Review Agent API"));
 }
 
 app.UseExceptionHandler();
