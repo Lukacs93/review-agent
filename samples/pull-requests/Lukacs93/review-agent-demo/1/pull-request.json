@@ -1,0 +1,23 @@
+{
+  "title": "Add order discounts and shipping",
+  "description": "Adds a discount endpoint (10% above 50,000 HUF, another 5% for customers with more than 5 orders), marks orders as shipped, and introduces the Basket model for placing orders.",
+  "baseBranch": "main",
+  "headBranch": "feature/discounts-and-shipping",
+  "files": [
+    {
+      "path": "src/Orders.Api/Application/Basket.cs",
+      "status": "Added",
+      "patch": "@@ -0,0 +1,10 @@\n+namespace Orders.Api.Application;\n+\n+public sealed record BasketItem(string ProductCode, int Quantity, decimal UnitPrice);\n+\n+/// <summary>The customer's basket that becomes an order.</summary>\n+public sealed record Basket(Guid CustomerId, IReadOnlyList<BasketItem> Items)\n+{\n+    public PlaceOrderCommand ToPlaceOrderCommand() =>\n+        new(CustomerId, Items.Select(i => new PlaceOrderLine(i.ProductCode, i.Quantity, i.UnitPrice)).ToList());\n+}"
+    },
+    {
+      "path": "src/Orders.Api/Controllers/OrdersController.cs",
+      "status": "Modified",
+      "patch": "@@ -1,5 +1,7 @@\n using Microsoft.AspNetCore.Mvc;\n+using Microsoft.EntityFrameworkCore;\n using Orders.Api.Application;\n+using Orders.Api.Infrastructure;\n \n namespace Orders.Api.Controllers;\n \n@@ -8,7 +10,8 @@\n public sealed class OrdersController(\n     PlaceOrderHandler placeOrder,\n     GetOrderHandler getOrder,\n-    CancelOrderHandler cancelOrder) : ControllerBase\n+    CancelOrderHandler cancelOrder,\n+    OrdersDbContext db) : ControllerBase\n {\n     [HttpPost]\n     public async Task<IActionResult> Place(PlaceOrderCommand command, CancellationToken cancellationToken)\n@@ -30,4 +33,32 @@\n         var found = await cancelOrder.HandleAsync(new CancelOrderCommand(id), cancellationToken);\n         return found ? NoContent() : NotFound();\n     }\n+\n+    [HttpPost(\"{id:guid}/discount\")]\n+    public async Task<IActionResult> ApplyDiscount(Guid id, CancellationToken cancellationToken)\n+    {\n+        var order = await db.Orders.FirstOrDefaultAsync(o => o.Id == id, cancellationToken);\n+        if (order is null)\n+        {\n+            return NotFound();\n+        }\n+\n+        // 10% off above 50,000 HUF, another 5% for loyal customers (more than 5 orders)\n+        var discount = 0m;\n+        if (order.Total > 50_000m)\n+        {\n+            discount = order.Total * 0.10m;\n+        }\n+\n+        var previousOrders = await db.Orders.CountAsync(o => o.CustomerId == order.CustomerId, cancellationToken);\n+        if (previousOrders > 5)\n+        {\n+            discount += order.Total * 0.05m;\n+        }\n+\n+        order.DiscountAmount = discount;\n+        await db.SaveChangesAsync(cancellationToken);\n+\n+        return Ok(new { order.Id, order.Total, order.DiscountAmount });\n+    }\n }"
+    },
+    {
+      "path": "src/Orders.Api/Domain/Order.cs",
+      "status": "Modified",
+      "patch": "@@ -9,6 +9,8 @@\n     public Guid CustomerId { get; private set; }\n     public OrderStatus Status { get; private set; }\n     public DateTimeOffset PlacedAt { get; private set; }\n+    public DateTimeOffset? ShippedAt { get; private set; }\n+    public decimal DiscountAmount { get; set; }\n     public IReadOnlyList<OrderLine> Lines => _lines;\n \n     public decimal Total => _lines.Sum(line => line.LineTotal);\n@@ -44,4 +46,15 @@\n \n         Status = OrderStatus.Cancelled;\n     }\n+\n+    public void MarkAsShipped(DateTimeOffset now)\n+    {\n+        if (Status != OrderStatus.Placed)\n+        {\n+            throw new DomainException(\"Only a placed order can be shipped.\");\n+        }\n+\n+        Status = OrderStatus.Shipped;\n+        ShippedAt = now;\n+    }\n }"
+    }
+  ]
+}

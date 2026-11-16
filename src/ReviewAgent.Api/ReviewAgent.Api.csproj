@@ -9,6 +9,11 @@
     <PackageReference Include="Microsoft.AspNetCore.OpenApi" />
   </ItemGroup>
 
+  <!-- The saved pull requests the agent can review offline; copied next to the application. -->
+  <ItemGroup>
+    <Content Include="..\..\samples\**\*" LinkBase="samples" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
   <ItemGroup>
     <ProjectReference Include="..\ReviewAgent.Application\ReviewAgent.Application.csproj" />
     <ProjectReference Include="..\ReviewAgent.Infrastructure\ReviewAgent.Infrastructure.csproj" />
