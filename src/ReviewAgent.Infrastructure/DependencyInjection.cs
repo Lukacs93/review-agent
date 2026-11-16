@@ -8,6 +8,7 @@ using ReviewAgent.Infrastructure.Persistence;
 using ReviewAgent.Infrastructure.Persistence.Errors;
 using ReviewAgent.Infrastructure.Persistence.Reviews;
 using ReviewAgent.Infrastructure.SourceControl;
+using ReviewAgent.Infrastructure.SourceControl.GitHub;
 using ReviewAgent.Infrastructure.SourceControl.Saved;
 
 namespace ReviewAgent.Infrastructure;
@@ -42,11 +43,27 @@ public static class DependencyInjection
             .ValidateDataAnnotations()
             .ValidateOnStart();
 
-        services.AddSingleton<IPullRequestSource>(serviceProvider =>
+        services.AddSingleton(serviceProvider =>
         {
             var options = serviceProvider.GetRequiredService<IOptions<PullRequestSourceOptions>>().Value;
             return new SavedPullRequestSource(Path.GetFullPath(options.SavedDirectory, AppContext.BaseDirectory));
         });
+
+        // The standard resilience handler retries transient failures (5xx, 408, 429) with backoff, honours
+        // Retry-After, and adds timeouts and a circuit breaker.
+        services.AddHttpClient<GitHubPullRequestSource>((serviceProvider, client) =>
+                GitHubPullRequestSource.ConfigureClient(
+                    client,
+                    serviceProvider.GetRequiredService<IOptions<PullRequestSourceOptions>>().Value.GitHub))
+            .AddStandardResilienceHandler();
+
+        // The rest of the application only sees IPullRequestSource; the configuration decides which one it gets.
+        services.AddTransient<IPullRequestSource>(serviceProvider =>
+            serviceProvider.GetRequiredService<IOptions<PullRequestSourceOptions>>().Value.Source switch
+            {
+                PullRequestSourceKind.GitHub => serviceProvider.GetRequiredService<GitHubPullRequestSource>(),
+                _ => serviceProvider.GetRequiredService<SavedPullRequestSource>(),
+            });
 
         return services;
     }
