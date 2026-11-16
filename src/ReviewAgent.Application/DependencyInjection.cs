@@ -2,6 +2,8 @@ using Microsoft.Extensions.DependencyInjection;
 using ReviewAgent.Application.Interfaces;
 using ReviewAgent.Application.Reviews.Commands;
 using ReviewAgent.Application.Reviews.Queries;
+using ReviewAgent.Application.SourceControl;
+using ReviewAgent.Application.SourceControl.Queries;
 
 namespace ReviewAgent.Application;
 
@@ -19,6 +21,7 @@ public static class DependencyInjection
         services.AddScoped<ICommandHandler<EditComment>, EditCommentHandler>();
         services.AddScoped<ICommandHandler<DiscardComment>, DiscardCommentHandler>();
         services.AddScoped<IQueryHandler<GetReviewRun, ReviewRunDetails?>, GetReviewRunHandler>();
+        services.AddScoped<IQueryHandler<GetPullRequest, PullRequestSnapshot>, GetPullRequestHandler>();
 
         return services;
     }
