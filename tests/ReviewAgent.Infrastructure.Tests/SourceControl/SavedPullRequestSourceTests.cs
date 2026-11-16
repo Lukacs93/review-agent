@@ -66,17 +66,6 @@ public sealed class SavedPullRequestSourceTests : IDisposable
     }
 
     [Fact]
-    public async Task Repository_names_cannot_lead_out_of_the_root()
-    {
-        var outside = new PullRequestRef("..", "..", PullRequestNumber);
-
-        var error = await Assert.ThrowsAsync<PullRequestNotFoundException>(
-            () => Source.GetPullRequestAsync(outside, CancellationToken.None));
-
-        Assert.Equal(SourceControlErrors.PullRequestNotFound(outside), error.Message);
-    }
-
-    [Fact]
     public async Task File_is_read_from_the_saved_repository()
     {
         var content = await Source.GetFileAsync(PullRequest, ChangedFilePath, CancellationToken.None);

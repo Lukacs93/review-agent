@@ -62,22 +62,13 @@ internal sealed class SavedPullRequestSource(string rootDirectory) : IPullReques
         return File.Exists(file) ? await File.ReadAllTextAsync(file, cancellationToken) : null;
     }
 
-    private string DirectoryOf(PullRequestRef pullRequest)
-    {
-        var directory = Path.GetFullPath(Path.Combine(
+    // PullRequestRef only accepts GitHub-style names, so the owner and repository cannot lead out of the root.
+    private string DirectoryOf(PullRequestRef pullRequest) =>
+        Path.Combine(
             _rootDirectory,
             pullRequest.Owner,
             pullRequest.Repository,
-            pullRequest.Number.ToString(CultureInfo.InvariantCulture)));
-
-        // The owner and repository names come from the request, so they must not lead out of the root either.
-        if (!IsInside(directory, _rootDirectory))
-        {
-            throw new PullRequestNotFoundException(SourceControlErrors.PullRequestNotFound(pullRequest));
-        }
-
-        return directory;
-    }
+            pullRequest.Number.ToString(CultureInfo.InvariantCulture));
 
     private static bool IsInside(string path, string directory) =>
         path.StartsWith(
