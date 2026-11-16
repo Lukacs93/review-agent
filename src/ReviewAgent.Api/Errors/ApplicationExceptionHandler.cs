@@ -1,15 +1,17 @@
 using Microsoft.AspNetCore.Diagnostics;
 using Microsoft.AspNetCore.Mvc;
 using ReviewAgent.Application.Reviews;
+using ReviewAgent.Application.SourceControl;
 using ReviewAgent.Domain;
 
 namespace ReviewAgent.Api.Errors;
 
 /// <summary>
-/// Turns the exceptions of the review workflow into problem details (RFC 9457) with the right status code.
+/// Turns the exceptions of the Application and Domain layers into problem details (RFC 9457) with the right
+/// status code.
 /// Any other exception is left to the default handler, which answers 500 without details.
 /// </summary>
-internal sealed class ReviewExceptionHandler(IProblemDetailsService problemDetailsService) : IExceptionHandler
+internal sealed class ApplicationExceptionHandler(IProblemDetailsService problemDetailsService) : IExceptionHandler
 {
     public async ValueTask<bool> TryHandleAsync(
         HttpContext httpContext,
@@ -20,6 +22,7 @@ internal sealed class ReviewExceptionHandler(IProblemDetailsService problemDetai
         {
             DomainException => (StatusCodes.Status400BadRequest, ProblemTitles.RuleViolation),
             ReviewRunNotFoundException => (StatusCodes.Status404NotFound, ProblemTitles.ReviewRunNotFound),
+            PullRequestNotFoundException => (StatusCodes.Status404NotFound, ProblemTitles.PullRequestNotFound),
             ConcurrencyConflictException => (StatusCodes.Status409Conflict, ProblemTitles.ConcurrentChange),
             _ => null,
         };

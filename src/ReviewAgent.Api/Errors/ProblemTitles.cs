@@ -5,5 +5,6 @@ internal static class ProblemTitles
 {
     public const string RuleViolation = "The request breaks a review rule.";
     public const string ReviewRunNotFound = "The review run was not found.";
+    public const string PullRequestNotFound = "The pull request was not found.";
     public const string ConcurrentChange = "The review run was changed by another request.";
 }

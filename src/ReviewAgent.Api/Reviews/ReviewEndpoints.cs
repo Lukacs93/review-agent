@@ -7,7 +7,7 @@ namespace ReviewAgent.Api.Reviews;
 
 /// <summary>
 /// The HTTP endpoints of the review workflow. Each one turns the request into a command or query and calls
-/// its handler; errors become problem details in <see cref="Errors.ReviewExceptionHandler"/>.
+/// its handler; errors become problem details in <see cref="Errors.ApplicationExceptionHandler"/>.
 /// </summary>
 internal static class ReviewEndpoints
 {

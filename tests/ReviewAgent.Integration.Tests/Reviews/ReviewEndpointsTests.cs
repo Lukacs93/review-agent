@@ -3,7 +3,6 @@ using System.Net;
 using System.Net.Http.Json;
 using System.Text.Json;
 using System.Text.Json.Serialization;
-using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.DependencyInjection;
 using ReviewAgent.Application.Reviews;
 using ReviewAgent.Application.Reviews.Errors;
@@ -25,7 +24,6 @@ public sealed class ReviewEndpointsTests(ReviewAgentApiFactory factory) : IClass
     private const string CommentBody = "Use an application handler instead of the DbContext.";
     private const string EditedBody = "Move this query to an application handler.";
     private const string Summary = "One architecture issue.";
-    private const string ProblemContentType = "application/problem+json";
 
     // The API sends enums as text, so the tests read them the same way.
     private static readonly JsonSerializerOptions _jsonOptions = new(JsonSerializerDefaults.Web)
@@ -73,7 +71,10 @@ public sealed class ReviewEndpointsTests(ReviewAgentApiFactory factory) : IClass
             ReviewsUri,
             new { RepositoryOwner = " ", RepositoryName, PullRequestNumber });
 
-        await AssertProblemAsync(response, HttpStatusCode.BadRequest, ValueObjectErrors.RepositoryOwnerRequired);
+        await ProblemDetailsAssert.HasProblemAsync(
+            response,
+            HttpStatusCode.BadRequest,
+            ValueObjectErrors.RepositoryOwnerRequired);
     }
 
     [Fact]
@@ -126,7 +127,7 @@ public sealed class ReviewEndpointsTests(ReviewAgentApiFactory factory) : IClass
 
         using var response = await client.PostAsync(CommentUri(runId, Guid.NewGuid(), "approve"), content: null);
 
-        await AssertProblemAsync(
+        await ProblemDetailsAssert.HasProblemAsync(
             response,
             HttpStatusCode.NotFound,
             ReviewRunRepositoryErrors.RunNotFound(new ReviewRunId(runId)));
@@ -143,7 +144,10 @@ public sealed class ReviewEndpointsTests(ReviewAgentApiFactory factory) : IClass
 
         using var response = await client.PostAsync(CommentUri(runId, Guid.NewGuid(), "approve"), content: null);
 
-        await AssertProblemAsync(response, HttpStatusCode.BadRequest, ReviewRunErrors.DecideWhenNotFinished);
+        await ProblemDetailsAssert.HasProblemAsync(
+            response,
+            HttpStatusCode.BadRequest,
+            ReviewRunErrors.DecideWhenNotFinished);
     }
 
     private static Uri RunUri(Guid runId) =>
@@ -165,19 +169,6 @@ public sealed class ReviewEndpointsTests(ReviewAgentApiFactory factory) : IClass
         var details = await client.GetFromJsonAsync<ReviewRunDetails>(RunUri(runId), _jsonOptions);
         Assert.NotNull(details);
         return Assert.Single(details.Comments);
-    }
-
-    private static async Task AssertProblemAsync(
-        HttpResponseMessage response,
-        HttpStatusCode expectedStatus,
-        string expectedDetail)
-    {
-        Assert.Equal(expectedStatus, response.StatusCode);
-        Assert.Equal(ProblemContentType, response.Content.Headers.ContentType?.MediaType);
-
-        var problem = await response.Content.ReadFromJsonAsync<ProblemDetails>(_jsonOptions);
-        Assert.NotNull(problem);
-        Assert.Equal(expectedDetail, problem.Detail);
     }
 
     // The agent proposes comments in a later step; until then the tests save a finished run directly.
