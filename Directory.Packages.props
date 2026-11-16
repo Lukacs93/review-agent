@@ -3,6 +3,9 @@
     <!-- ASP.NET Core -->
     <PackageVersion Include="Microsoft.AspNetCore.OpenApi" Version="10.0.0" />
 
+    <!-- Dependency injection -->
+    <PackageVersion Include="Microsoft.Extensions.DependencyInjection.Abstractions" Version="10.0.15" />
+
     <!-- Data access -->
     <PackageVersion Include="Microsoft.EntityFrameworkCore.Design" Version="10.0.15" />
     <PackageVersion Include="Microsoft.EntityFrameworkCore.Sqlite" Version="10.0.15" />
