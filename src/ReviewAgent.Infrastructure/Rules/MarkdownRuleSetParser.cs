@@ -9,7 +9,7 @@ namespace ReviewAgent.Infrastructure.Rules;
 /// Reads a team's rules file (<c>.review/rules.md</c>). Every level-3 heading is a rule in the form
 /// <c>### ARCH-01 – Title (error)</c>; its description runs until the next heading.
 /// </summary>
-public static partial class MarkdownRuleSetParser
+internal static partial class MarkdownRuleSetParser
 {
     private const string RuleHeadingPrefix = "### ";
 

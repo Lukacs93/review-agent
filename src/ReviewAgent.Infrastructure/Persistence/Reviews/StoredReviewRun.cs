@@ -4,7 +4,7 @@ namespace ReviewAgent.Infrastructure.Persistence.Reviews;
 /// One row per review run. Its version is the number of stored events. Saving checks it as a concurrency token,
 /// so a save that started from an outdated version fails instead of appending conflicting events.
 /// </summary>
-public sealed class StoredReviewRun
+internal sealed class StoredReviewRun
 {
     public required Guid Id { get; init; }
 

@@ -1,7 +1,7 @@
 namespace ReviewAgent.Infrastructure.Persistence.Reviews.Errors;
 
 /// <summary>The messages of the exceptions thrown when review events cannot be stored or read.</summary>
-public static class ReviewEventStoreErrors
+internal static class ReviewEventStoreErrors
 {
     public static string UnknownEventType(string eventType) =>
         $"Unknown stored review event type: '{eventType}'.";
