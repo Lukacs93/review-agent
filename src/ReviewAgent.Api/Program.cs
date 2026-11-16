@@ -1,5 +1,6 @@
 using System.Text.Json.Serialization;
 using ReviewAgent.Api.Errors;
+using ReviewAgent.Api.PullRequests;
 using ReviewAgent.Api.Reviews;
 using ReviewAgent.Application;
 using ReviewAgent.Infrastructure;
@@ -8,7 +9,7 @@ var builder = WebApplication.CreateBuilder(args);
 
 builder.Services.AddOpenApi();
 builder.Services.AddProblemDetails();
-builder.Services.AddExceptionHandler<ReviewExceptionHandler>();
+builder.Services.AddExceptionHandler<ApplicationExceptionHandler>();
 builder.Services.AddHealthChecks();
 
 // Enums travel as text ("AwaitingApproval"), not numbers, so the UI does not depend on their order.
@@ -30,6 +31,7 @@ app.UseStatusCodePages();
 
 app.MapHealthChecks("/health");
 app.MapReviewEndpoints();
+app.MapPullRequestEndpoints();
 
 await app.Services.MigrateDatabaseAsync(app.Lifetime.ApplicationStopping);
 await app.RunAsync();
