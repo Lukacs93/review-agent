@@ -1,10 +1,8 @@
 using System.Net;
-using Microsoft.AspNetCore.Mvc.Testing;
 
 namespace ReviewAgent.Integration.Tests;
 
-public sealed class HealthEndpointTests(WebApplicationFactory<Program> factory)
-    : IClassFixture<WebApplicationFactory<Program>>
+public sealed class HealthEndpointTests(ReviewAgentApiFactory factory) : IClassFixture<ReviewAgentApiFactory>
 {
     [Fact]
     public async Task Health_endpoint_returns_ok()
