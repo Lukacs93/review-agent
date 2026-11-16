@@ -12,7 +12,4 @@ public static class ValueObjectErrors
     public const string FilePathRequired = "File path is required.";
     public const string FilePathNotRelative = "File path must be relative to the repository root.";
     public const string LineNotPositive = "Line number must be positive.";
-
-    // RuleId
-    public const string RuleIdRequired = "Rule ID is required.";
 }

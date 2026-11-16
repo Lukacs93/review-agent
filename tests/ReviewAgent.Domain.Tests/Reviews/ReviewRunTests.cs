@@ -1,6 +1,7 @@
 using ReviewAgent.Domain.Reviews;
 using ReviewAgent.Domain.Reviews.Errors;
 using ReviewAgent.Domain.Reviews.Events;
+using ReviewAgent.Domain.Rules;
 
 namespace ReviewAgent.Domain.Tests.Reviews;
 

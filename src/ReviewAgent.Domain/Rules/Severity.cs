@@ -1,4 +1,4 @@
-namespace ReviewAgent.Domain.Reviews;
+namespace ReviewAgent.Domain.Rules;
 
 /// <summary>How serious a rule violation is, as defined in the team's rules.</summary>
 public enum Severity

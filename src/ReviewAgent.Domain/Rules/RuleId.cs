@@ -1,6 +1,6 @@
-using ReviewAgent.Domain.Reviews.Errors;
+using ReviewAgent.Domain.Rules.Errors;
 
-namespace ReviewAgent.Domain.Reviews;
+namespace ReviewAgent.Domain.Rules;
 
 /// <summary>
 /// Identifies a team rule, for example <c>ARCH-01</c>.
@@ -12,7 +12,7 @@ public sealed record RuleId
     {
         if (string.IsNullOrWhiteSpace(value))
         {
-            throw new DomainException(ValueObjectErrors.RuleIdRequired);
+            throw new DomainException(RuleErrors.RuleIdRequired);
         }
 
         Value = value.Trim().ToUpperInvariant();
