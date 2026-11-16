@@ -1,10 +1,14 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Options;
 using ReviewAgent.Application.Reviews;
+using ReviewAgent.Application.SourceControl;
 using ReviewAgent.Infrastructure.Persistence;
 using ReviewAgent.Infrastructure.Persistence.Errors;
 using ReviewAgent.Infrastructure.Persistence.Reviews;
+using ReviewAgent.Infrastructure.SourceControl;
+using ReviewAgent.Infrastructure.SourceControl.Saved;
 
 namespace ReviewAgent.Infrastructure;
 
@@ -32,6 +36,17 @@ public static class DependencyInjection
         });
 
         services.AddScoped<IReviewRunRepository, EfReviewRunRepository>();
+
+        services.AddOptions<PullRequestSourceOptions>()
+            .BindConfiguration(PullRequestSourceOptions.SectionName)
+            .ValidateDataAnnotations()
+            .ValidateOnStart();
+
+        services.AddSingleton<IPullRequestSource>(serviceProvider =>
+        {
+            var options = serviceProvider.GetRequiredService<IOptions<PullRequestSourceOptions>>().Value;
+            return new SavedPullRequestSource(Path.GetFullPath(options.SavedDirectory, AppContext.BaseDirectory));
+        });
 
         return services;
     }
