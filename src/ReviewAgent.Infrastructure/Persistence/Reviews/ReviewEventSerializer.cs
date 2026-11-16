@@ -6,7 +6,7 @@ using ReviewAgent.Infrastructure.Persistence.Reviews.Errors;
 namespace ReviewAgent.Infrastructure.Persistence.Reviews;
 
 /// <summary>Converts review events to and from the JSON stored in the event store.</summary>
-public static class ReviewEventSerializer
+internal static class ReviewEventSerializer
 {
     // The names are part of the stored data, so they are written out instead of taken from the class names:
     // renaming an event class must not make the events already stored unreadable.

@@ -10,7 +10,7 @@ namespace ReviewAgent.Infrastructure.Persistence.Reviews;
 /// Stores review runs as events through EF Core. Concurrent changes are detected with optimistic concurrency:
 /// the run's stored version must still be the one it was loaded with.
 /// </summary>
-public sealed class EfReviewRunRepository(ReviewAgentDbContext dbContext) : IReviewRunRepository
+internal sealed class EfReviewRunRepository(ReviewAgentDbContext dbContext) : IReviewRunRepository
 {
     public async Task<ReviewRun?> FindAsync(ReviewRunId id, CancellationToken cancellationToken)
     {

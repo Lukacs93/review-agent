@@ -1,7 +1,7 @@
 namespace ReviewAgent.Infrastructure.Persistence.Reviews;
 
 /// <summary>One row of the event store: a review event serialized as JSON. Rows are only ever inserted.</summary>
-public sealed class StoredReviewEvent
+internal sealed class StoredReviewEvent
 {
     public required Guid RunId { get; init; }
 
