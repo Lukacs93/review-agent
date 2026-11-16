@@ -16,6 +16,7 @@
   </Folder>
   <Folder Name="/tests/">
     <Project Path="tests/ReviewAgent.Domain.Tests/ReviewAgent.Domain.Tests.csproj" />
+    <Project Path="tests/ReviewAgent.Infrastructure.Tests/ReviewAgent.Infrastructure.Tests.csproj" />
     <Project Path="tests/ReviewAgent.Integration.Tests/ReviewAgent.Integration.Tests.csproj" />
   </Folder>
 </Solution>

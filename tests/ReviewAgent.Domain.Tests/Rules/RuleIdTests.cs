@@ -1,7 +1,7 @@
-using ReviewAgent.Domain.Reviews;
-using ReviewAgent.Domain.Reviews.Errors;
+using ReviewAgent.Domain.Rules;
+using ReviewAgent.Domain.Rules.Errors;
 
-namespace ReviewAgent.Domain.Tests.Reviews;
+namespace ReviewAgent.Domain.Tests.Rules;
 
 public sealed class RuleIdTests
 {
@@ -20,7 +20,7 @@ public sealed class RuleIdTests
     {
         var error = Assert.Throws<DomainException>(() => new RuleId(input));
 
-        Assert.Equal(ValueObjectErrors.RuleIdRequired, error.Message);
+        Assert.Equal(RuleErrors.RuleIdRequired, error.Message);
     }
 
     [Fact]
@@ -28,7 +28,7 @@ public sealed class RuleIdTests
     {
         var error = Assert.Throws<DomainException>(() => new RuleId(null!));
 
-        Assert.Equal(ValueObjectErrors.RuleIdRequired, error.Message);
+        Assert.Equal(RuleErrors.RuleIdRequired, error.Message);
     }
 
     [Fact]

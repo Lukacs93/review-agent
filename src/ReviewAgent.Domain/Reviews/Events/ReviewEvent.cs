@@ -1,3 +1,5 @@
+using ReviewAgent.Domain.Rules;
+
 namespace ReviewAgent.Domain.Reviews.Events;
 
 /// <summary>Something that happened to a review run. The run's state is rebuilt from these events.</summary>

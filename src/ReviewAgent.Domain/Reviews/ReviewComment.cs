@@ -1,3 +1,5 @@
+using ReviewAgent.Domain.Rules;
+
 namespace ReviewAgent.Domain.Reviews;
 
 /// <summary>A comment proposed by the agent, and the developer's decision on it.</summary>
