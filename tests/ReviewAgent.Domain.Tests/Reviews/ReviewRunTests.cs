@@ -8,6 +8,7 @@ namespace ReviewAgent.Domain.Tests.Reviews;
 public sealed class ReviewRunTests
 {
     private const string Summary = "Two rule violations found.";
+    private const string RejectionReason = "The query does not change state, so CQRS-01 is not broken.";
 
     private static DateTimeOffset Now => new(2026, 11, 14, 10, 0, 0, TimeSpan.Zero);
 
@@ -202,6 +203,92 @@ public sealed class ReviewRunTests
         run.CompletePublishing(Now);
 
         Assert.Equal(ReviewStatus.Published, run.Status);
+    }
+
+    [Fact]
+    public void Rejected_comment_keeps_the_reason()
+    {
+        var run = StartedRun();
+        var commentId = ProposeComment(run);
+
+        run.RejectComment(commentId, RejectionReason, Now);
+
+        var comment = Assert.Single(run.Comments);
+        Assert.True(comment.IsRejected);
+        Assert.Equal(RejectionReason, comment.RejectionReason);
+        Assert.IsType<CommentRejected>(run.UncommittedEvents[^1]);
+    }
+
+    [Fact]
+    public void Rejection_needs_a_reason()
+    {
+        var run = StartedRun();
+        var commentId = ProposeComment(run);
+
+        AssertFails(ReviewRunErrors.RejectionReasonRequired, () => run.RejectComment(commentId, " ", Now));
+    }
+
+    [Fact]
+    public void Comment_cannot_be_rejected_twice()
+    {
+        var run = StartedRun();
+        var commentId = ProposeComment(run);
+        run.RejectComment(commentId, RejectionReason, Now);
+
+        AssertFails(
+            ReviewRunErrors.CommentAlreadyRejected(commentId),
+            () => run.RejectComment(commentId, RejectionReason, Now));
+    }
+
+    [Fact]
+    public void Comment_cannot_be_rejected_after_the_review_finished()
+    {
+        var (run, commentIds) = FinishedRunWithComments(1);
+
+        AssertFails(
+            ReviewRunErrors.RejectWhenNotRunning,
+            () => run.RejectComment(commentIds[0], RejectionReason, Now));
+    }
+
+    [Fact]
+    public void Rejected_comment_cannot_be_decided()
+    {
+        var run = StartedRun();
+        var rejected = ProposeComment(run);
+        run.RejectComment(rejected, RejectionReason, Now);
+        run.Finish(Summary, Now);
+
+        AssertFails(
+            ReviewRunErrors.RejectedCommentCannotBeDecided(rejected),
+            () => run.ApproveComment(rejected, Now));
+    }
+
+    [Fact]
+    public void Rejected_comments_do_not_block_publishing()
+    {
+        var run = StartedRun();
+        var rejected = ProposeComment(run);
+        var kept = ProposeComment(run);
+        run.RejectComment(rejected, RejectionReason, Now);
+        run.Finish(Summary, Now);
+        run.ApproveComment(kept, Now);
+
+        run.MarkCommentPublished(kept, Now);
+        run.CompletePublishing(Now);
+
+        Assert.Equal(ReviewStatus.Published, run.Status);
+    }
+
+    [Fact]
+    public void Rejection_is_rebuilt_from_the_history()
+    {
+        var run = StartedRun();
+        var commentId = ProposeComment(run);
+        run.RejectComment(commentId, RejectionReason, Now);
+
+        var rebuilt = ReviewRun.FromHistory(run.UncommittedEvents);
+
+        Assert.Equal(RejectionReason, Assert.Single(rebuilt.Comments).RejectionReason);
     }
 
     [Fact]
