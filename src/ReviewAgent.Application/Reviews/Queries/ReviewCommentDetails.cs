@@ -31,6 +31,9 @@ public sealed record ReviewCommentDetails
 
     public required bool IsPublished { get; init; }
 
+    /// <summary>Why the verifier agent rejected the comment; such a comment needs no decision.</summary>
+    public string? RejectionReason { get; init; }
+
     public static ReviewCommentDetails From(ReviewComment comment)
     {
         ArgumentNullException.ThrowIfNull(comment);
@@ -47,6 +50,7 @@ public sealed record ReviewCommentDetails
             SuggestedFix = comment.SuggestedFix,
             Decision = comment.Decision,
             IsPublished = comment.IsPublished,
+            RejectionReason = comment.RejectionReason,
         };
     }
 }
