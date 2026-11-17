@@ -1,3 +1,5 @@
+using ReviewAgent.Application.Reviews;
+
 namespace ReviewAgent.McpServer.Errors;
 
 /// <summary>
@@ -6,11 +8,11 @@ namespace ReviewAgent.McpServer.Errors;
 internal static class ToolErrors
 {
     public const string PullRequestHeaderMissing =
-        $"The pull request under review is not set: the agent must send the {ReviewedPullRequest.HeaderName} "
-        + "header as owner/repository/number.";
+        "The pull request under review is not set: the agent must send the "
+        + $"{ReviewAgentHeaderNames.ReviewedPullRequest} header as owner/repository/number.";
 
     public static string PullRequestHeaderInvalid(string value) =>
-        $"'{value}' is not a valid pull request in the {ReviewedPullRequest.HeaderName} header. "
+        $"'{value}' is not a valid pull request in the {ReviewAgentHeaderNames.ReviewedPullRequest} header. "
         + "Expected owner/repository/number.";
 
     public static string FileNotChanged(string path) =>

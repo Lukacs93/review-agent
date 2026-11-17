@@ -12,6 +12,15 @@
     <PackageReference Include="Microsoft.Extensions.Options.DataAnnotations" />
     <PackageReference Include="Microsoft.Extensions.Http" />
     <PackageReference Include="Microsoft.Extensions.Http.Resilience" />
+    <PackageReference Include="Microsoft.Agents.AI" />
+    <PackageReference Include="Microsoft.Extensions.AI" />
+    <PackageReference Include="Microsoft.Extensions.AI.OpenAI" />
+    <PackageReference Include="ModelContextProtocol.Core" />
+  </ItemGroup>
+
+  <!-- The agent's prompts, built into the assembly so they always ship with the code. -->
+  <ItemGroup>
+    <EmbeddedResource Include="Agents\Prompts\*.md" LogicalName="Prompts.%(Filename)%(Extension)" />
   </ItemGroup>
 
   <ItemGroup>

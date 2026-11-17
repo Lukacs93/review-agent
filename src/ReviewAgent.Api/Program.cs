@@ -1,4 +1,5 @@
 using System.Text.Json.Serialization;
+using ReviewAgent.Api.Agent;
 using ReviewAgent.Api.Errors;
 using ReviewAgent.Api.PullRequests;
 using ReviewAgent.Api.Reviews;
@@ -18,6 +19,7 @@ builder.Services.ConfigureHttpJsonOptions(options =>
 
 builder.Services.AddApplication();
 builder.Services.AddInfrastructure();
+builder.Services.AddReviewWorker();
 
 var app = builder.Build();
 

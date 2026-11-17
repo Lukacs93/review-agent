@@ -9,8 +9,9 @@ namespace ReviewAgent.Application.Tests.Reviews.Commands;
 public sealed class StartReviewHandlerTests
 {
     private readonly InMemoryReviewRunRepository _repository = new();
+    private readonly RecordingReviewScheduler _scheduler = new();
 
-    private StartReviewHandler Handler => new(_repository, new FixedTimeProvider(TestReviewRuns.Now));
+    private StartReviewHandler Handler => new(_repository, _scheduler, new FixedTimeProvider(TestReviewRuns.Now));
 
     [Fact]
     public async Task Started_run_is_saved_and_running()
@@ -35,6 +36,19 @@ public sealed class StartReviewHandlerTests
     }
 
     [Fact]
+    public async Task Started_run_is_queued_for_the_agent()
+    {
+        var command = new StartReview(
+            TestReviewRuns.RepositoryOwner,
+            TestReviewRuns.RepositoryName,
+            TestReviewRuns.PullRequestNumber);
+
+        var runId = await Handler.HandleAsync(command, CancellationToken.None);
+
+        Assert.Equal(runId, Assert.Single(_scheduler.RunIds));
+    }
+
+    [Fact]
     public async Task Invalid_pull_request_is_rejected()
     {
         var command = new StartReview(" ", TestReviewRuns.RepositoryName, TestReviewRuns.PullRequestNumber);
@@ -43,5 +57,6 @@ public sealed class StartReviewHandlerTests
             () => Handler.HandleAsync(command, CancellationToken.None));
 
         Assert.Equal(ValueObjectErrors.RepositoryOwnerRequired, error.Message);
+        Assert.Empty(_scheduler.RunIds);
     }
 }
