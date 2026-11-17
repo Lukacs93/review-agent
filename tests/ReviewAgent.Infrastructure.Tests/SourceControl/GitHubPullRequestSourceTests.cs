@@ -3,7 +3,6 @@ using System.Text.Json;
 using ReviewAgent.Application.SourceControl;
 using ReviewAgent.Application.SourceControl.Errors;
 using ReviewAgent.Domain.Reviews;
-using ReviewAgent.Infrastructure.SourceControl;
 using ReviewAgent.Infrastructure.SourceControl.GitHub;
 using ReviewAgent.Infrastructure.SourceControl.GitHub.Errors;
 

@@ -1,4 +1,4 @@
-namespace ReviewAgent.Infrastructure.SourceControl;
+namespace ReviewAgent.Infrastructure.SourceControl.GitHub;
 
 /// <summary>The <c>PullRequests:GitHub</c> section of the configuration.</summary>
 internal sealed class GitHubOptions
