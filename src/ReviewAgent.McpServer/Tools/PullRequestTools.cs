@@ -45,7 +45,7 @@ internal sealed class PullRequestTools(
 
     [McpServerTool(Name = "get_diff", ReadOnly = true)]
     [Description(
-        "Returns the changes of one changed file in unified diff format. The hunk headers (@@ -a,b +c,d @@) give "
+        "Returns the changes of one changed file in unified diff format. The block headers (@@ -a,b +c,d @@) give "
         + "the line numbers in the new file; use them for the line of a review comment.")]
     public async Task<string> GetDiffAsync(
         [Description("Path of a changed file, as listed by get_pull_request.")] string path,
