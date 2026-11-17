@@ -4,6 +4,7 @@ using Microsoft.Extensions.AI;
 using Microsoft.Extensions.Options;
 using OpenAI;
 using ReviewAgent.Infrastructure.Agents.Errors;
+using ReviewAgent.Infrastructure.Agents.LanguageModel.ProviderExtensions;
 
 namespace ReviewAgent.Infrastructure.Agents.LanguageModel;
 
@@ -39,6 +40,7 @@ internal sealed class OpenAICompatibleChatClientFactory(
             // The resilience handler's timeouts apply; this only keeps the SDK's 100-second default out of the way.
             NetworkTimeout = agent.Timeout,
         };
+        clientOptions.AddPolicy(new ToolCallExtrasPolicy(), PipelinePosition.PerCall);
 
         var client = new OpenAIClient(new ApiKeyCredential(agent.ApiKey), clientOptions);
 
