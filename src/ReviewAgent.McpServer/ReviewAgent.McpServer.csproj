@@ -1,0 +1,26 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+
+  <PropertyGroup>
+    <RootNamespace>ReviewAgent.McpServer</RootNamespace>
+    <UserSecretsId>review-agent-mcp-server</UserSecretsId>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="ModelContextProtocol.AspNetCore" />
+  </ItemGroup>
+
+  <!-- The saved pull requests the tools read when the source is offline; copied next to the server. -->
+  <ItemGroup>
+    <Content Include="..\..\samples\**\*" LinkBase="samples" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="ReviewAgent.McpServer.Tests" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\ReviewAgent.Application\ReviewAgent.Application.csproj" />
+    <ProjectReference Include="..\ReviewAgent.Infrastructure\ReviewAgent.Infrastructure.csproj" />
+  </ItemGroup>
+
+</Project>
