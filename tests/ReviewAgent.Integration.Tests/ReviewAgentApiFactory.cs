@@ -5,7 +5,7 @@ using Microsoft.AspNetCore.TestHost;
 using Microsoft.Data.Sqlite;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
-using ReviewAgent.Application.Reviews;
+using ReviewAgent.Application.Reviews.Scheduling;
 using ReviewAgent.Infrastructure;
 
 namespace ReviewAgent.Integration.Tests;

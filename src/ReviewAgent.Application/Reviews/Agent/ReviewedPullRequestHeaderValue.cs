@@ -2,7 +2,7 @@ using System.Globalization;
 using ReviewAgent.Domain;
 using ReviewAgent.Domain.Reviews;
 
-namespace ReviewAgent.Application.Reviews;
+namespace ReviewAgent.Application.Reviews.Agent;
 
 /// <summary>
 /// The value of the <see cref="ReviewAgentHeaderNames.ReviewedPullRequest"/> header: writing it (the agent) and

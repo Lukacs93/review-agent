@@ -1,4 +1,5 @@
-namespace ReviewAgent.Application.Reviews;
+
+namespace ReviewAgent.Application.Reviews.Scheduling;
 
 /// <summary>
 /// Hands the review runs scheduled with <see cref="IReviewScheduler"/> to the worker, in order.

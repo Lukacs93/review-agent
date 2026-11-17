@@ -1,7 +1,7 @@
-using ReviewAgent.Application.Reviews;
+using ReviewAgent.Application.Reviews.Agent;
 using ReviewAgent.Domain.Reviews;
 
-namespace ReviewAgent.Application.Tests.Reviews;
+namespace ReviewAgent.Application.Tests.Reviews.Agent;
 
 public sealed class ReviewedPullRequestHeaderValueTests
 {

@@ -1,4 +1,4 @@
-using ReviewAgent.Application.Reviews;
+using ReviewAgent.Application.Reviews.Agent;
 
 namespace ReviewAgent.McpServer.Errors;
 

@@ -1,5 +1,5 @@
 using System.Threading.Channels;
-using ReviewAgent.Application.Reviews;
+using ReviewAgent.Application.Reviews.Scheduling;
 
 namespace ReviewAgent.Api.Agent;
 

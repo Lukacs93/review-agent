@@ -1,4 +1,5 @@
-namespace ReviewAgent.Application.Reviews;
+
+namespace ReviewAgent.Application.Reviews.Agent;
 
 /// <summary>
 /// The names of our own HTTP headers, like ASP.NET Core's <c>HeaderNames</c>. Both the agent and the MCP server

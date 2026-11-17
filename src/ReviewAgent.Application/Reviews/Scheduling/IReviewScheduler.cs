@@ -1,4 +1,5 @@
-namespace ReviewAgent.Application.Reviews;
+
+namespace ReviewAgent.Application.Reviews.Scheduling;
 
 /// <summary>
 /// Hands started review runs to the agent. Starting a review only schedules the run, so the request returns at

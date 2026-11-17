@@ -2,6 +2,7 @@ using Microsoft.Extensions.AI;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using ReviewAgent.Application.Reviews;
+using ReviewAgent.Application.Reviews.Agent;
 using ReviewAgent.Application.Reviews.Commands;
 using ReviewAgent.Application.SourceControl;
 using ReviewAgent.Domain.Reviews;

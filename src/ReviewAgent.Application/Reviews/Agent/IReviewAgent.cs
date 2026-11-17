@@ -1,4 +1,5 @@
-namespace ReviewAgent.Application.Reviews;
+
+namespace ReviewAgent.Application.Reviews.Agent;
 
 /// <summary>
 /// Reviews the pull request of a started run: reads it through its tools, proposes comments, then finishes the
