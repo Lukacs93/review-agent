@@ -1,0 +1,17 @@
+<Project Sdk="Aspire.AppHost.Sdk/13.6.5">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <UserSecretsId>review-agent-apphost</UserSecretsId>
+    <!-- The dashboard and orchestrator come from NuGet, pinned by the SDK version,
+         so the build needs no separately installed Aspire CLI (works the same in CI). -->
+    <AspireUseCliBundle>false</AspireUseCliBundle>
+    <NoWarn>$(NoWarn);ASPIRE010</NoWarn>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\ReviewAgent.Api\ReviewAgent.Api.csproj" />
+    <ProjectReference Include="..\ReviewAgent.McpServer\ReviewAgent.McpServer.csproj" />
+  </ItemGroup>
+
+</Project>
