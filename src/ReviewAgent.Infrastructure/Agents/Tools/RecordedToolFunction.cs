@@ -1,7 +1,7 @@
 using System.Text.Json;
 using Microsoft.Extensions.AI;
 using ReviewAgent.Application.Interfaces;
-using ReviewAgent.Application.Reviews.Commands;
+using ReviewAgent.Application.Reviews.Commands.RecordToolCall;
 
 namespace ReviewAgent.Infrastructure.Agents.Tools;
 
@@ -12,7 +12,7 @@ namespace ReviewAgent.Infrastructure.Agents.Tools;
 internal sealed class RecordedToolFunction(
     AIFunction innerFunction,
     Guid runId,
-    ICommandHandler<RecordToolCall> recordToolCall) : DelegatingAIFunction(innerFunction)
+    ICommandHandler<RecordToolCallCommand> recordToolCall) : DelegatingAIFunction(innerFunction)
 {
     protected override async ValueTask<object?> InvokeCoreAsync(
         AIFunctionArguments arguments,
@@ -24,7 +24,7 @@ internal sealed class RecordedToolFunction(
             ? null
             : JsonSerializer.Serialize(new Dictionary<string, object?>(arguments));
 
-        await recordToolCall.HandleAsync(new RecordToolCall(runId, Name, argumentsJson), cancellationToken);
+        await recordToolCall.HandleAsync(new RecordToolCallCommand(runId, Name, argumentsJson), cancellationToken);
         return await base.InvokeCoreAsync(arguments, cancellationToken);
     }
 }

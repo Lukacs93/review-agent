@@ -3,7 +3,8 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using ReviewAgent.Application.Reviews;
 using ReviewAgent.Application.Reviews.Agent;
-using ReviewAgent.Application.Reviews.Commands;
+using ReviewAgent.Application.Reviews.Commands.FailReview;
+using ReviewAgent.Application.Reviews.Commands.FinishReview;
 using ReviewAgent.Application.SourceControl;
 using ReviewAgent.Domain.Reviews;
 using ReviewAgent.Infrastructure.Agents.Errors;
@@ -48,7 +49,7 @@ internal sealed partial class ReviewAgentRunner(
             var summary = await RunAgentAsync(runId, run.PullRequest, timeoutSource.Token);
             if (!string.IsNullOrWhiteSpace(summary))
             {
-                await commands.FinishReview.HandleAsync(new FinishReview(runId, summary), cancellationToken);
+                await commands.FinishReview.HandleAsync(new FinishReviewCommand(runId, summary), cancellationToken);
                 return;
             }
 
@@ -69,7 +70,7 @@ internal sealed partial class ReviewAgentRunner(
             failure = AgentErrors.Failed(ModelErrorDetails.Describe(exception));
         }
 
-        await commands.FailReview.HandleAsync(new FailReview(runId, failure), cancellationToken);
+        await commands.FailReview.HandleAsync(new FailReviewCommand(runId, failure), cancellationToken);
     }
 
     private async Task<string> RunAgentAsync(

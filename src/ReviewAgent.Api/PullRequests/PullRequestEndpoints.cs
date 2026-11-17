@@ -1,7 +1,7 @@
 using Microsoft.AspNetCore.Http.HttpResults;
 using ReviewAgent.Application.Interfaces;
 using ReviewAgent.Application.SourceControl;
-using ReviewAgent.Application.SourceControl.Queries;
+using ReviewAgent.Application.SourceControl.Queries.GetPullRequest;
 
 namespace ReviewAgent.Api.PullRequests;
 
@@ -24,10 +24,10 @@ internal static class PullRequestEndpoints
         string repositoryOwner,
         string repositoryName,
         int pullRequestNumber,
-        IQueryHandler<GetPullRequest, PullRequestSnapshot> handler,
+        IQueryHandler<GetPullRequestQuery, PullRequestSnapshot> handler,
         CancellationToken cancellationToken)
     {
-        var query = new GetPullRequest(repositoryOwner, repositoryName, pullRequestNumber);
+        var query = new GetPullRequestQuery(repositoryOwner, repositoryName, pullRequestNumber);
         return TypedResults.Ok(await handler.HandleAsync(query, cancellationToken));
     }
 }

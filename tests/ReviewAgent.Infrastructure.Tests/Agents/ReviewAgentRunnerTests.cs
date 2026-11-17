@@ -2,7 +2,10 @@ using Microsoft.Extensions.AI;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 using ReviewAgent.Application.Reviews;
-using ReviewAgent.Application.Reviews.Commands;
+using ReviewAgent.Application.Reviews.Commands.FailReview;
+using ReviewAgent.Application.Reviews.Commands.FinishReview;
+using ReviewAgent.Application.Reviews.Commands.ProposeComment;
+using ReviewAgent.Application.Reviews.Commands.RecordToolCall;
 using ReviewAgent.Application.SourceControl;
 using ReviewAgent.Domain.Reviews;
 using ReviewAgent.Domain.Rules;
@@ -112,8 +115,8 @@ public sealed class ReviewAgentRunnerTests : IDisposable
     public async Task Run_that_is_no_longer_running_is_left_alone()
     {
         var runId = await StartRunAsync();
-        await new FailReviewHandler(_repository, TimeProvider.System)
-            .HandleAsync(new FailReview(runId, "Stopped."), CancellationToken.None);
+        await new FailReviewCommandHandler(_repository, TimeProvider.System)
+            .HandleAsync(new FailReviewCommand(runId, "Stopped."), CancellationToken.None);
 
         await Runner(() => throw new InvalidOperationException("The model must not be called."))
             .ReviewAsync(runId, CancellationToken.None);
@@ -131,10 +134,10 @@ public sealed class ReviewAgentRunnerTests : IDisposable
             new InMemoryToolsConnector(),
             new FakeChatClientFactory(createModel),
             new ReviewAgentCommands(
-                new RecordToolCallHandler(_repository, TimeProvider.System),
-                new ProposeCommentHandler(_repository, TimeProvider.System),
-                new FinishReviewHandler(_repository, TimeProvider.System),
-                new FailReviewHandler(_repository, TimeProvider.System)),
+                new RecordToolCallCommandHandler(_repository, TimeProvider.System),
+                new ProposeCommentCommandHandler(_repository, TimeProvider.System),
+                new FinishReviewCommandHandler(_repository, TimeProvider.System),
+                new FailReviewCommandHandler(_repository, TimeProvider.System)),
             Options.Create(new AgentOptions
             {
                 Endpoint = new Uri("https://model.example/"),
