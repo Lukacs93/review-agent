@@ -20,5 +20,6 @@
     <Project Path="tests/ReviewAgent.Domain.Tests/ReviewAgent.Domain.Tests.csproj" />
     <Project Path="tests/ReviewAgent.Infrastructure.Tests/ReviewAgent.Infrastructure.Tests.csproj" />
     <Project Path="tests/ReviewAgent.Integration.Tests/ReviewAgent.Integration.Tests.csproj" />
+    <Project Path="tests/ReviewAgent.McpServer.Tests/ReviewAgent.McpServer.Tests.csproj" />
   </Folder>
 </Solution>
