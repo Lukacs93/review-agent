@@ -1,9 +1,13 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Http.Resilience;
 using Microsoft.Extensions.Options;
 using ReviewAgent.Application.Reviews;
 using ReviewAgent.Application.SourceControl;
+using ReviewAgent.Infrastructure.Agents;
+using ReviewAgent.Infrastructure.Agents.LanguageModel;
+using ReviewAgent.Infrastructure.Agents.Tools;
 using ReviewAgent.Infrastructure.Persistence;
 using ReviewAgent.Infrastructure.Persistence.Errors;
 using ReviewAgent.Infrastructure.Persistence.Reviews;
@@ -22,9 +26,11 @@ public static class DependencyInjection
     /// <summary>The name of the connection string in the configuration: <c>ConnectionStrings:ReviewAgent</c>.</summary>
     public const string ConnectionStringName = "ReviewAgent";
 
-    /// <summary>Everything the Infrastructure layer provides: the database and the pull request sources.</summary>
+    /// <summary>
+    /// Everything the Infrastructure layer provides: the database, the pull request sources and the review agent.
+    /// </summary>
     public static IServiceCollection AddInfrastructure(this IServiceCollection services) =>
-        services.AddPersistence().AddSourceControl();
+        services.AddPersistence().AddSourceControl().AddReviewAgent();
 
     /// <summary>The event store: the EF Core context and the review run repository.</summary>
     public static IServiceCollection AddPersistence(this IServiceCollection services)
@@ -81,6 +87,48 @@ public static class DependencyInjection
                 PullRequestSourceKind.GitHub => serviceProvider.GetRequiredService<GitHubPullRequestSource>(),
                 _ => serviceProvider.GetRequiredService<SavedPullRequestSource>(),
             });
+
+        return services;
+    }
+
+    /// <summary>
+    /// The review agent: the model client from the <c>Agent</c> section of the configuration, and the connection to
+    /// the MCP server's tools.
+    /// </summary>
+    public static IServiceCollection AddReviewAgent(this IServiceCollection services)
+    {
+        ArgumentNullException.ThrowIfNull(services);
+
+        services.AddOptions<AgentOptions>()
+            .BindConfiguration(AgentOptions.SectionName)
+            .ValidateDataAnnotations()
+            .ValidateOnStart();
+
+        // No retry handler here: an MCP call that half succeeded must not be repeated behind the model's back.
+        services.AddHttpClient(McpPullRequestToolsConnector.HttpClientName);
+
+        // The model's requests: the same standard resilience handler as GitHub's (retries with backoff on 429, 503
+        // and timeouts, honouring Retry-After, and a circuit breaker), with timeouts long enough for a model.
+        // HttpClient's own 100-second timeout would cut through the retries, so the handler's timeouts replace it.
+        services.AddHttpClient(
+                OpenAICompatibleChatClientFactory.HttpClientName,
+                client => client.Timeout = Timeout.InfiniteTimeSpan)
+            .AddStandardResilienceHandler()
+            .Configure((resilience, serviceProvider) =>
+            {
+                var agent = serviceProvider.GetRequiredService<IOptions<AgentOptions>>().Value;
+
+                resilience.AttemptTimeout.Timeout = agent.RequestTimeout;
+                resilience.TotalRequestTimeout.Timeout = agent.Timeout;
+
+                // The handler requires the breaker to sample at least two attempts' worth of time.
+                resilience.CircuitBreaker.SamplingDuration = agent.RequestTimeout * 2;
+            });
+
+        services.AddSingleton<IAgentChatClientFactory, OpenAICompatibleChatClientFactory>();
+        services.AddSingleton<IPullRequestToolsConnector, McpPullRequestToolsConnector>();
+        services.AddScoped<ReviewAgentCommands>();
+        services.AddScoped<IReviewAgent, ReviewAgentRunner>();
 
         return services;
     }
