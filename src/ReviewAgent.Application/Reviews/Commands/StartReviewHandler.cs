@@ -3,9 +3,11 @@ using ReviewAgent.Domain.Reviews;
 
 namespace ReviewAgent.Application.Reviews.Commands;
 
-/// <summary>Creates and saves a new review run; returns its ID.</summary>
-public sealed class StartReviewHandler(IReviewRunRepository repository, TimeProvider timeProvider)
-    : ICommandHandler<StartReview, Guid>
+/// <summary>Creates and saves a new review run, then schedules it for the agent; returns its ID.</summary>
+public sealed class StartReviewHandler(
+    IReviewRunRepository repository,
+    IReviewScheduler scheduler,
+    TimeProvider timeProvider) : ICommandHandler<StartReview, Guid>
 {
     public async Task<Guid> HandleAsync(StartReview command, CancellationToken cancellationToken)
     {
@@ -18,6 +20,7 @@ public sealed class StartReviewHandler(IReviewRunRepository repository, TimeProv
         var run = ReviewRun.Start(ReviewRunId.New(), pullRequest, timeProvider.GetUtcNow());
 
         await repository.SaveAsync(run, cancellationToken);
+        await scheduler.ScheduleAsync(run.Id.Value, cancellationToken);
         return run.Id.Value;
     }
 }

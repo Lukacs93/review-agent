@@ -9,8 +9,9 @@ namespace ReviewAgent.Application.Tests.Reviews.Commands;
 public sealed class StartReviewHandlerTests
 {
     private readonly InMemoryReviewRunRepository _repository = new();
+    private readonly RecordingReviewScheduler _scheduler = new();
 
-    private StartReviewHandler Handler => new(_repository, new FixedTimeProvider(TestReviewRuns.Now));
+    private StartReviewHandler Handler => new(_repository, _scheduler, new FixedTimeProvider(TestReviewRuns.Now));
 
     [Fact]
     public async Task Started_run_is_saved_and_running()
