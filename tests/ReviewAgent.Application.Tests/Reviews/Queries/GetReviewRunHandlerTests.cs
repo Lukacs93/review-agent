@@ -40,6 +40,7 @@ public sealed class GetReviewRunHandlerTests
         Assert.Null(comment.SuggestedFix);
         Assert.Equal(CommentDecision.Pending, comment.Decision);
         Assert.False(comment.IsPublished);
+        Assert.Null(comment.RejectionReason);
     }
 
     [Fact]

@@ -40,6 +40,26 @@ internal static class TestReviewRuns
         return (run.Id.Value, commentId.Value);
     }
 
+    /// <summary>A run the agent is still working on, with one proposed comment.</summary>
+    public static async Task<(Guid RunId, Guid CommentId)> SaveRunningRunWithOneCommentAsync(
+        IReviewRunRepository repository)
+    {
+        var run = ReviewRun.Start(
+            ReviewRunId.New(),
+            new PullRequestRef(RepositoryOwner, RepositoryName, PullRequestNumber),
+            Now);
+        var commentId = run.ProposeComment(
+            new CodeLocation(FilePath, Line),
+            new RuleId(Rule),
+            Severity.Error,
+            CommentBody,
+            suggestedFix: null,
+            Now);
+
+        await repository.SaveAsync(run, CancellationToken.None);
+        return (run.Id.Value, commentId.Value);
+    }
+
     /// <summary>A run the agent is still working on.</summary>
     public static async Task<Guid> SaveRunningRunAsync(IReviewRunRepository repository)
     {
