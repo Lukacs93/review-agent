@@ -43,7 +43,13 @@ public sealed class ReviewComment
 
     public bool IsPublished { get; private set; }
 
-    public bool IsDecided => Decision != CommentDecision.Pending;
+    /// <summary>Why the verifier agent rejected the comment; <see langword="null"/> if it kept it.</summary>
+    public string? RejectionReason { get; private set; }
+
+    public bool IsRejected => RejectionReason is not null;
+
+    /// <summary>A rejected comment needs no decision from the developer.</summary>
+    public bool IsDecided => Decision != CommentDecision.Pending || IsRejected;
 
     public bool ShouldBePublished => Decision is CommentDecision.Approved or CommentDecision.Edited;
 
@@ -62,4 +68,6 @@ public sealed class ReviewComment
     internal void Discard() => Decision = CommentDecision.Discarded;
 
     internal void MarkPublished() => IsPublished = true;
+
+    internal void Reject(string reason) => RejectionReason = reason;
 }

@@ -10,6 +10,7 @@ public static class ReviewRunErrors
     public const string ProposeWhenNotRunning = "Comments can only be proposed while the review is running.";
     public const string FinishWhenNotRunning = "Only a running review can be finished.";
     public const string FailWhenNotRunning = "Only a running review can fail.";
+    public const string RejectWhenNotRunning = "Comments can only be rejected while the review is running.";
 
     // Required values
     public const string ToolNameRequired = "Tool name is required.";
@@ -17,6 +18,7 @@ public static class ReviewRunErrors
     public const string SummaryRequired = "Summary is required.";
     public const string FailureReasonRequired = "Failure reason is required.";
     public const string EditedBodyRequired = "Edited comment body is required.";
+    public const string RejectionReasonRequired = "Rejection reason is required.";
 
     // Decisions
     public const string DecideWhenNotFinished = "Comments can only be decided after the review has finished.";
@@ -33,6 +35,12 @@ public static class ReviewRunErrors
 
     public static string CommentNotApproved(CommentId commentId) =>
         $"Comment {commentId} was not approved, so it cannot be published.";
+
+    public static string CommentAlreadyRejected(CommentId commentId) =>
+        $"Comment {commentId} has already been rejected.";
+
+    public static string RejectedCommentCannotBeDecided(CommentId commentId) =>
+        $"Comment {commentId} was rejected by the verifier, so it needs no decision.";
 
     public static string UnknownEvent(string eventName) => $"Unknown review event: {eventName}.";
 }

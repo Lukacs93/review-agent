@@ -20,6 +20,14 @@ public static class DependencyInjection
         services.AddScoped<ICommandHandler<ApproveComment>, ApproveCommentHandler>();
         services.AddScoped<ICommandHandler<EditComment>, EditCommentHandler>();
         services.AddScoped<ICommandHandler<DiscardComment>, DiscardCommentHandler>();
+
+        // The agent's steps.
+        services.AddScoped<ICommandHandler<RecordToolCall>, RecordToolCallHandler>();
+        services.AddScoped<ICommandHandler<ProposeComment, Guid>, ProposeCommentHandler>();
+        services.AddScoped<ICommandHandler<RejectComment>, RejectCommentHandler>();
+        services.AddScoped<ICommandHandler<FinishReview>, FinishReviewHandler>();
+        services.AddScoped<ICommandHandler<FailReview>, FailReviewHandler>();
+
         services.AddScoped<IQueryHandler<GetReviewRun, ReviewRunDetails?>, GetReviewRunHandler>();
         services.AddScoped<IQueryHandler<GetPullRequest, PullRequestSnapshot>, GetPullRequestHandler>();
 

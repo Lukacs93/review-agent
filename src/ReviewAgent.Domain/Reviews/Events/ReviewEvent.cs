@@ -25,6 +25,10 @@ public sealed record CommentProposed(
     string? SuggestedFix)
     : ReviewEvent(RunId, OccurredAt);
 
+/// <summary>The verifier agent rejected a proposed comment, so it will not reach the developer.</summary>
+public sealed record CommentRejected(ReviewRunId RunId, DateTimeOffset OccurredAt, CommentId CommentId, string Reason)
+    : ReviewEvent(RunId, OccurredAt);
+
 /// <summary>The agent finished the review.</summary>
 public sealed record ReviewFinished(ReviewRunId RunId, DateTimeOffset OccurredAt, string Summary)
     : ReviewEvent(RunId, OccurredAt);

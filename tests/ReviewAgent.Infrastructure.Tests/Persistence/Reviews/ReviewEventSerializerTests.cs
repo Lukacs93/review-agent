@@ -75,6 +75,7 @@ public sealed class ReviewEventSerializerTests
             Severity.Error,
             "Use an application handler instead of the DbContext.",
             null),
+        new CommentRejected(RunId, Now, CommentId, "The query does not change state."),
         new ReviewFinished(RunId, Now, "One architecture issue."),
         new ReviewFailed(RunId, Now, "The model did not answer."),
         new CommentApproved(RunId, Now, CommentId),
