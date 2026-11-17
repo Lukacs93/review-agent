@@ -4,6 +4,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Http.Resilience;
 using Microsoft.Extensions.Options;
 using ReviewAgent.Application.Reviews;
+using ReviewAgent.Application.Reviews.Agent;
 using ReviewAgent.Application.SourceControl;
 using ReviewAgent.Infrastructure.Agents;
 using ReviewAgent.Infrastructure.Agents.LanguageModel;

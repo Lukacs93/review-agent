@@ -1,5 +1,8 @@
 using ReviewAgent.Application.Interfaces;
-using ReviewAgent.Application.Reviews.Commands;
+using ReviewAgent.Application.Reviews.Commands.FailReview;
+using ReviewAgent.Application.Reviews.Commands.FinishReview;
+using ReviewAgent.Application.Reviews.Commands.ProposeComment;
+using ReviewAgent.Application.Reviews.Commands.RecordToolCall;
 
 namespace ReviewAgent.Infrastructure.Agents;
 
@@ -7,7 +10,7 @@ namespace ReviewAgent.Infrastructure.Agents;
 /// The commands the agent saves its steps with, grouped so the runner does not take each one separately.
 /// </summary>
 internal sealed record ReviewAgentCommands(
-    ICommandHandler<RecordToolCall> RecordToolCall,
-    ICommandHandler<ProposeComment, Guid> ProposeComment,
-    ICommandHandler<FinishReview> FinishReview,
-    ICommandHandler<FailReview> FailReview);
+    ICommandHandler<RecordToolCallCommand> RecordToolCall,
+    ICommandHandler<ProposeCommentCommand, Guid> ProposeComment,
+    ICommandHandler<FinishReviewCommand> FinishReview,
+    ICommandHandler<FailReviewCommand> FailReview);

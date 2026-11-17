@@ -1,7 +1,10 @@
 using Microsoft.AspNetCore.Http.HttpResults;
 using ReviewAgent.Application.Interfaces;
-using ReviewAgent.Application.Reviews.Commands;
-using ReviewAgent.Application.Reviews.Queries;
+using ReviewAgent.Application.Reviews.Commands.ApproveComment;
+using ReviewAgent.Application.Reviews.Commands.DiscardComment;
+using ReviewAgent.Application.Reviews.Commands.EditComment;
+using ReviewAgent.Application.Reviews.Commands.StartReview;
+using ReviewAgent.Application.Reviews.Queries.GetReviewRun;
 
 namespace ReviewAgent.Api.Reviews;
 
@@ -28,10 +31,13 @@ internal static class ReviewEndpoints
 
     private static async Task<CreatedAtRoute<StartReviewResponse>> StartReviewAsync(
         StartReviewRequest request,
-        ICommandHandler<StartReview, Guid> handler,
+        ICommandHandler<StartReviewCommand, Guid> handler,
         CancellationToken cancellationToken)
     {
-        var command = new StartReview(request.RepositoryOwner, request.RepositoryName, request.PullRequestNumber);
+        var command = new StartReviewCommand(
+            request.RepositoryOwner,
+            request.RepositoryName,
+            request.PullRequestNumber);
         var runId = await handler.HandleAsync(command, cancellationToken);
 
         return TypedResults.CreatedAtRoute(
@@ -42,10 +48,10 @@ internal static class ReviewEndpoints
 
     private static async Task<Results<Ok<ReviewRunDetails>, NotFound>> GetReviewRunAsync(
         Guid runId,
-        IQueryHandler<GetReviewRun, ReviewRunDetails?> handler,
+        IQueryHandler<GetReviewRunQuery, ReviewRunDetails?> handler,
         CancellationToken cancellationToken)
     {
-        var details = await handler.HandleAsync(new GetReviewRun(runId), cancellationToken);
+        var details = await handler.HandleAsync(new GetReviewRunQuery(runId), cancellationToken);
 
         return details is null ? TypedResults.NotFound() : TypedResults.Ok(details);
     }
@@ -53,10 +59,10 @@ internal static class ReviewEndpoints
     private static async Task<NoContent> ApproveCommentAsync(
         Guid runId,
         Guid commentId,
-        ICommandHandler<ApproveComment> handler,
+        ICommandHandler<ApproveCommentCommand> handler,
         CancellationToken cancellationToken)
     {
-        await handler.HandleAsync(new ApproveComment(runId, commentId), cancellationToken);
+        await handler.HandleAsync(new ApproveCommentCommand(runId, commentId), cancellationToken);
         return TypedResults.NoContent();
     }
 
@@ -64,20 +70,20 @@ internal static class ReviewEndpoints
         Guid runId,
         Guid commentId,
         EditCommentRequest request,
-        ICommandHandler<EditComment> handler,
+        ICommandHandler<EditCommentCommand> handler,
         CancellationToken cancellationToken)
     {
-        await handler.HandleAsync(new EditComment(runId, commentId, request.Body), cancellationToken);
+        await handler.HandleAsync(new EditCommentCommand(runId, commentId, request.Body), cancellationToken);
         return TypedResults.NoContent();
     }
 
     private static async Task<NoContent> DiscardCommentAsync(
         Guid runId,
         Guid commentId,
-        ICommandHandler<DiscardComment> handler,
+        ICommandHandler<DiscardCommentCommand> handler,
         CancellationToken cancellationToken)
     {
-        await handler.HandleAsync(new DiscardComment(runId, commentId), cancellationToken);
+        await handler.HandleAsync(new DiscardCommentCommand(runId, commentId), cancellationToken);
         return TypedResults.NoContent();
     }
 }

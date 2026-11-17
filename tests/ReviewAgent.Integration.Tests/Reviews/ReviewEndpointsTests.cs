@@ -6,7 +6,7 @@ using System.Text.Json.Serialization;
 using Microsoft.Extensions.DependencyInjection;
 using ReviewAgent.Application.Reviews;
 using ReviewAgent.Application.Reviews.Errors;
-using ReviewAgent.Application.Reviews.Queries;
+using ReviewAgent.Application.Reviews.Queries.GetReviewRun;
 using ReviewAgent.Domain.Reviews;
 using ReviewAgent.Domain.Reviews.Errors;
 using ReviewAgent.Domain.Rules;

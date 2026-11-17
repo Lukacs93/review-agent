@@ -1,7 +1,7 @@
 using Microsoft.Extensions.AI;
 using Microsoft.Extensions.Options;
 using ModelContextProtocol.Client;
-using ReviewAgent.Application.Reviews;
+using ReviewAgent.Application.Reviews.Agent;
 using ReviewAgent.Domain.Reviews;
 
 namespace ReviewAgent.Infrastructure.Agents.Tools;

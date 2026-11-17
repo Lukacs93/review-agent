@@ -1,5 +1,5 @@
 using ReviewAgent.Application.Interfaces;
-using ReviewAgent.Application.Reviews.Commands;
+using ReviewAgent.Application.Reviews.Commands.ProposeComment;
 using ReviewAgent.Domain.Rules;
 using ReviewAgent.Infrastructure.Agents.Tools;
 using ReviewAgent.Infrastructure.Agents.Tools.Errors;
@@ -29,7 +29,8 @@ public sealed class ProposeCommentToolTests
         Assert.Equal("Comment proposed.", result);
         var command = Assert.Single(_handler.Commands);
         Assert.Equal(
-            new ProposeComment(_runId, FilePath, 11, "ARCH-01", Severity.Error, CommentBody, "Inject a handler."),
+            new ProposeCommentCommand(
+                _runId, FilePath, 11, "ARCH-01", Severity.Error, CommentBody, "Inject a handler."),
             command);
     }
 
@@ -85,11 +86,11 @@ public sealed class ProposeCommentToolTests
         Assert.Single(_handler.Commands);
     }
 
-    private sealed class RecordingProposeComment : ICommandHandler<ProposeComment, Guid>
+    private sealed class RecordingProposeComment : ICommandHandler<ProposeCommentCommand, Guid>
     {
-        public List<ProposeComment> Commands { get; } = [];
+        public List<ProposeCommentCommand> Commands { get; } = [];
 
-        public Task<Guid> HandleAsync(ProposeComment command, CancellationToken cancellationToken)
+        public Task<Guid> HandleAsync(ProposeCommentCommand command, CancellationToken cancellationToken)
         {
             Commands.Add(command);
             return Task.FromResult(Guid.NewGuid());

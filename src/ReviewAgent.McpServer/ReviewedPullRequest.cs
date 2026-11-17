@@ -1,5 +1,5 @@
 using ModelContextProtocol;
-using ReviewAgent.Application.Reviews;
+using ReviewAgent.Application.Reviews.Agent;
 using ReviewAgent.Domain.Reviews;
 using ReviewAgent.McpServer.Errors;
 

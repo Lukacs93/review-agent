@@ -1,4 +1,5 @@
 using System.ComponentModel.DataAnnotations;
+using ReviewAgent.Infrastructure.SourceControl.GitHub;
 using ReviewAgent.Infrastructure.SourceControl.Saved.Errors;
 
 namespace ReviewAgent.Infrastructure.SourceControl;

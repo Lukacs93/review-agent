@@ -1,7 +1,7 @@
 using System.ComponentModel;
 using Microsoft.Extensions.AI;
 using ReviewAgent.Application.Interfaces;
-using ReviewAgent.Application.Reviews.Commands;
+using ReviewAgent.Application.Reviews.Commands.ProposeComment;
 using ReviewAgent.Application.SourceControl;
 using ReviewAgent.Domain;
 using ReviewAgent.Domain.Rules;
@@ -25,14 +25,14 @@ internal sealed class ProposeCommentTool
     private readonly Guid _runId;
     private readonly Dictionary<string, IReadOnlySet<int>> _diffLinesByPath;
     private readonly RuleSet _rules;
-    private readonly ICommandHandler<ProposeComment, Guid> _proposeComment;
+    private readonly ICommandHandler<ProposeCommentCommand, Guid> _proposeComment;
     private readonly HashSet<(string Path, int Line, RuleId Rule)> _proposed = [];
 
     public ProposeCommentTool(
         Guid runId,
         PullRequestSnapshot pullRequest,
         RuleSet rules,
-        ICommandHandler<ProposeComment, Guid> proposeComment)
+        ICommandHandler<ProposeCommentCommand, Guid> proposeComment)
     {
         ArgumentNullException.ThrowIfNull(pullRequest);
 
@@ -83,7 +83,7 @@ internal sealed class ProposeCommentTool
         }
 
         await _proposeComment.HandleAsync(
-            new ProposeComment(_runId, path, line, rule.Id.Value, rule.Severity, body, suggestedFix),
+            new ProposeCommentCommand(_runId, path, line, rule.Id.Value, rule.Severity, body, suggestedFix),
             cancellationToken);
 
         return "Comment proposed.";

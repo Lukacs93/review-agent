@@ -1,9 +1,17 @@
 using Microsoft.Extensions.DependencyInjection;
 using ReviewAgent.Application.Interfaces;
-using ReviewAgent.Application.Reviews.Commands;
-using ReviewAgent.Application.Reviews.Queries;
+using ReviewAgent.Application.Reviews.Commands.ApproveComment;
+using ReviewAgent.Application.Reviews.Commands.DiscardComment;
+using ReviewAgent.Application.Reviews.Commands.EditComment;
+using ReviewAgent.Application.Reviews.Commands.FailReview;
+using ReviewAgent.Application.Reviews.Commands.FinishReview;
+using ReviewAgent.Application.Reviews.Commands.ProposeComment;
+using ReviewAgent.Application.Reviews.Commands.RecordToolCall;
+using ReviewAgent.Application.Reviews.Commands.RejectComment;
+using ReviewAgent.Application.Reviews.Commands.StartReview;
+using ReviewAgent.Application.Reviews.Queries.GetReviewRun;
 using ReviewAgent.Application.SourceControl;
-using ReviewAgent.Application.SourceControl.Queries;
+using ReviewAgent.Application.SourceControl.Queries.GetPullRequest;
 
 namespace ReviewAgent.Application;
 
@@ -16,20 +24,20 @@ public static class DependencyInjection
 
         services.AddSingleton(TimeProvider.System);
 
-        services.AddScoped<ICommandHandler<StartReview, Guid>, StartReviewHandler>();
-        services.AddScoped<ICommandHandler<ApproveComment>, ApproveCommentHandler>();
-        services.AddScoped<ICommandHandler<EditComment>, EditCommentHandler>();
-        services.AddScoped<ICommandHandler<DiscardComment>, DiscardCommentHandler>();
+        services.AddScoped<ICommandHandler<StartReviewCommand, Guid>, StartReviewCommandHandler>();
+        services.AddScoped<ICommandHandler<ApproveCommentCommand>, ApproveCommentCommandHandler>();
+        services.AddScoped<ICommandHandler<EditCommentCommand>, EditCommentCommandHandler>();
+        services.AddScoped<ICommandHandler<DiscardCommentCommand>, DiscardCommentCommandHandler>();
 
         // The agent's steps.
-        services.AddScoped<ICommandHandler<RecordToolCall>, RecordToolCallHandler>();
-        services.AddScoped<ICommandHandler<ProposeComment, Guid>, ProposeCommentHandler>();
-        services.AddScoped<ICommandHandler<RejectComment>, RejectCommentHandler>();
-        services.AddScoped<ICommandHandler<FinishReview>, FinishReviewHandler>();
-        services.AddScoped<ICommandHandler<FailReview>, FailReviewHandler>();
+        services.AddScoped<ICommandHandler<RecordToolCallCommand>, RecordToolCallCommandHandler>();
+        services.AddScoped<ICommandHandler<ProposeCommentCommand, Guid>, ProposeCommentCommandHandler>();
+        services.AddScoped<ICommandHandler<RejectCommentCommand>, RejectCommentCommandHandler>();
+        services.AddScoped<ICommandHandler<FinishReviewCommand>, FinishReviewCommandHandler>();
+        services.AddScoped<ICommandHandler<FailReviewCommand>, FailReviewCommandHandler>();
 
-        services.AddScoped<IQueryHandler<GetReviewRun, ReviewRunDetails?>, GetReviewRunHandler>();
-        services.AddScoped<IQueryHandler<GetPullRequest, PullRequestSnapshot>, GetPullRequestHandler>();
+        services.AddScoped<IQueryHandler<GetReviewRunQuery, ReviewRunDetails?>, GetReviewRunQueryHandler>();
+        services.AddScoped<IQueryHandler<GetPullRequestQuery, PullRequestSnapshot>, GetPullRequestQueryHandler>();
 
         return services;
     }
