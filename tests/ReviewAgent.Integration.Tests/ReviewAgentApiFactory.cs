@@ -1,14 +1,18 @@
 using System.Globalization;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
+using Microsoft.AspNetCore.TestHost;
 using Microsoft.Data.Sqlite;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
+using ReviewAgent.Application.Reviews;
 using ReviewAgent.Infrastructure;
 
 namespace ReviewAgent.Integration.Tests;
 
 /// <summary>
 /// Runs the real API in memory against its own SQLite database file, which is migrated at startup like in
-/// production and deleted when the tests finish.
+/// production and deleted when the tests finish. Started reviews are not queued for the agent.
 /// </summary>
 public sealed class ReviewAgentApiFactory : WebApplicationFactory<Program>
 {
@@ -23,6 +27,12 @@ public sealed class ReviewAgentApiFactory : WebApplicationFactory<Program>
         builder.UseSetting(
             "ConnectionStrings:" + DependencyInjection.ConnectionStringName,
             "Data Source=" + _databasePath);
+
+        builder.ConfigureTestServices(services =>
+        {
+            services.RemoveAll<IReviewScheduler>();
+            services.AddSingleton<IReviewScheduler, NoReviewScheduler>();
+        });
     }
 
     public override async ValueTask DisposeAsync()
