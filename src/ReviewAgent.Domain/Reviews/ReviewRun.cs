@@ -98,6 +98,23 @@ public sealed class ReviewRun
         return commentId;
     }
 
+    /// <summary>
+    /// Rejects a proposed comment, with the reason. The verifier agent does this before the review finishes,
+    /// so the developer only gets the comments it kept.
+    /// </summary>
+    public void RejectComment(CommentId commentId, string reason, DateTimeOffset now)
+    {
+        EnsureStatus(ReviewStatus.Running, ReviewRunErrors.RejectWhenNotRunning);
+        EnsureNotBlank(reason, ReviewRunErrors.RejectionReasonRequired);
+
+        if (FindComment(commentId).IsRejected)
+        {
+            throw new DomainException(ReviewRunErrors.CommentAlreadyRejected(commentId));
+        }
+
+        Raise(new CommentRejected(Id, now, commentId, reason.Trim()));
+    }
+
     public void Finish(string summary, DateTimeOffset now)
     {
         EnsureStatus(ReviewStatus.Running, ReviewRunErrors.FinishWhenNotRunning);
@@ -211,6 +228,10 @@ public sealed class ReviewRun
                     proposed.SuggestedFix));
                 break;
 
+            case CommentRejected rejected:
+                FindComment(rejected.CommentId).Reject(rejected.Reason);
+                break;
+
             case ReviewFinished finished:
                 Summary = finished.Summary;
                 Status = ReviewStatus.AwaitingApproval;
@@ -251,7 +272,11 @@ public sealed class ReviewRun
     private void EnsureCanDecide(CommentId commentId)
     {
         EnsureStatus(ReviewStatus.AwaitingApproval, ReviewRunErrors.DecideWhenNotFinished);
-        _ = FindComment(commentId);
+
+        if (FindComment(commentId).IsRejected)
+        {
+            throw new DomainException(ReviewRunErrors.RejectedCommentCannotBeDecided(commentId));
+        }
 
         if (_comments.Any(comment => comment.IsPublished))
         {
