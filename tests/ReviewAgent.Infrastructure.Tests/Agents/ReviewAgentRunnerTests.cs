@@ -1,0 +1,186 @@
+using Microsoft.Extensions.AI;
+using Microsoft.Extensions.Logging.Abstractions;
+using Microsoft.Extensions.Options;
+using ReviewAgent.Application.Reviews;
+using ReviewAgent.Application.Reviews.Commands;
+using ReviewAgent.Application.SourceControl;
+using ReviewAgent.Domain.Reviews;
+using ReviewAgent.Domain.Rules;
+using ReviewAgent.Infrastructure.Agents;
+using ReviewAgent.Infrastructure.Agents.Errors;
+using ReviewAgent.Infrastructure.Agents.LanguageModel;
+using ReviewAgent.Infrastructure.Agents.Tools;
+using ReviewAgent.Infrastructure.Persistence.Reviews;
+using ReviewAgent.Infrastructure.Tests.Persistence;
+
+namespace ReviewAgent.Infrastructure.Tests.Agents;
+
+public sealed class ReviewAgentRunnerTests : IDisposable
+{
+    private const string FilePath = "src/Orders.Api/Controllers/OrdersController.cs";
+    private const string Patch = "@@ -8,2 +10,3 @@\n public sealed class OrdersController(\n+    OrdersDbContext db)\n {";
+    private const string CommentBody = "Use an application handler instead of the DbContext.";
+    private const string Summary = "Adds a discount endpoint. The controller uses the DbContext directly.";
+    private const string RulesPath = ".review/rules.md";
+
+    private readonly SqliteTestDatabase _database = new();
+    private readonly EfReviewRunRepository _repository;
+
+    public ReviewAgentRunnerTests() => _repository = new EfReviewRunRepository(_database.CreateDbContext());
+
+    [Fact]
+    public async Task Proposed_comments_and_summary_finish_the_run()
+    {
+        var model = new ScriptedChatClient(
+            ScriptedChatClient.CallsTool("get_pull_request"),
+            ScriptedChatClient.CallsTool(
+                ProposeCommentTool.Name,
+                new() { ["path"] = FilePath, ["line"] = 11, ["ruleId"] = "ARCH-01", ["body"] = CommentBody }),
+            ScriptedChatClient.Answers(Summary));
+        var runId = await StartRunAsync();
+
+        await Runner(() => model).ReviewAsync(runId, CancellationToken.None);
+
+        var run = await LoadAsync(runId);
+        Assert.Equal(ReviewStatus.AwaitingApproval, run.Status);
+        Assert.Equal(Summary, run.Summary);
+        Assert.Equal(2, run.ToolCallCount);
+        var comment = Assert.Single(run.Comments);
+        Assert.Equal(new CodeLocation(FilePath, 11), comment.Location);
+        Assert.Equal(new RuleId("ARCH-01"), comment.Rule);
+        Assert.Equal(Severity.Error, comment.Severity);
+    }
+
+    [Fact]
+    public async Task Comment_the_tool_does_not_accept_is_not_saved()
+    {
+        var model = new ScriptedChatClient(
+            ScriptedChatClient.CallsTool(
+                ProposeCommentTool.Name,
+                new() { ["path"] = FilePath, ["line"] = 99, ["ruleId"] = "ARCH-01", ["body"] = CommentBody }),
+            ScriptedChatClient.Answers(Summary));
+        var runId = await StartRunAsync();
+
+        await Runner(() => model).ReviewAsync(runId, CancellationToken.None);
+
+        var run = await LoadAsync(runId);
+        Assert.Equal(ReviewStatus.AwaitingApproval, run.Status);
+        Assert.Equal(1, run.ToolCallCount);
+        Assert.Empty(run.Comments);
+    }
+
+    [Fact]
+    public async Task Missing_api_key_fails_the_run()
+    {
+        var runId = await StartRunAsync();
+
+        await Runner(() => throw new InvalidOperationException(AgentErrors.ApiKeyMissing))
+            .ReviewAsync(runId, CancellationToken.None);
+
+        var run = await LoadAsync(runId);
+        Assert.Equal(ReviewStatus.Failed, run.Status);
+        Assert.Equal(AgentErrors.Failed(AgentErrors.ApiKeyMissing), run.FailureReason);
+    }
+
+    [Fact]
+    public async Task Answer_without_a_summary_fails_the_run()
+    {
+        var model = new ScriptedChatClient(ScriptedChatClient.Answers(" "));
+        var runId = await StartRunAsync();
+
+        await Runner(() => model).ReviewAsync(runId, CancellationToken.None);
+
+        var run = await LoadAsync(runId);
+        Assert.Equal(ReviewStatus.Failed, run.Status);
+        Assert.Equal(AgentErrors.NoSummary, run.FailureReason);
+    }
+
+    [Fact]
+    public async Task Repository_without_team_rules_fails_the_run()
+    {
+        var model = new ScriptedChatClient(ScriptedChatClient.Answers(Summary));
+        var runId = await StartRunAsync();
+
+        await Runner(() => model, rulesMarkdown: null).ReviewAsync(runId, CancellationToken.None);
+
+        var run = await LoadAsync(runId);
+        Assert.Equal(ReviewStatus.Failed, run.Status);
+        Assert.Equal(AgentErrors.Failed(AgentErrors.TeamRulesNotFound(RulesPath)), run.FailureReason);
+    }
+
+    [Fact]
+    public async Task Run_that_is_no_longer_running_is_left_alone()
+    {
+        var runId = await StartRunAsync();
+        await new FailReviewHandler(_repository, TimeProvider.System)
+            .HandleAsync(new FailReview(runId, "Stopped."), CancellationToken.None);
+
+        await Runner(() => throw new InvalidOperationException("The model must not be called."))
+            .ReviewAsync(runId, CancellationToken.None);
+
+        var run = await LoadAsync(runId);
+        Assert.Equal("Stopped.", run.FailureReason);
+    }
+
+    public void Dispose() => _database.Dispose();
+
+    private ReviewAgentRunner Runner(Func<IChatClient> createModel, string? rulesMarkdown = TestData.RulesMarkdown) =>
+        new(
+            _repository,
+            new FakePullRequestSource(TestData.PullRequest(FilePath, Patch), rulesMarkdown),
+            new InMemoryToolsConnector(),
+            new FakeChatClientFactory(createModel),
+            new ReviewAgentCommands(
+                new RecordToolCallHandler(_repository, TimeProvider.System),
+                new ProposeCommentHandler(_repository, TimeProvider.System),
+                new FinishReviewHandler(_repository, TimeProvider.System),
+                new FailReviewHandler(_repository, TimeProvider.System)),
+            Options.Create(new AgentOptions
+            {
+                Endpoint = new Uri("https://model.example/"),
+                Model = "test-model",
+                McpServerUrl = new Uri("http://localhost:5090/"),
+                TeamRulesPath = RulesPath,
+                MaxToolRounds = 10,
+                Timeout = TimeSpan.FromMinutes(1),
+            }),
+            NullLoggerFactory.Instance);
+
+    private async Task<Guid> StartRunAsync()
+    {
+        var run = ReviewRun.Start(ReviewRunId.New(), new PullRequestRef("test", "demo", 1), DateTimeOffset.UtcNow);
+        await _repository.SaveAsync(run, CancellationToken.None);
+        return run.Id.Value;
+    }
+
+    private async Task<ReviewRun> LoadAsync(Guid runId) =>
+        await _repository.GetAsync(new ReviewRunId(runId), CancellationToken.None);
+
+    private sealed class FakePullRequestSource(PullRequestSnapshot snapshot, string? rulesMarkdown)
+        : IPullRequestSource
+    {
+        public Task<PullRequestSnapshot> GetPullRequestAsync(
+            PullRequestRef pullRequest,
+            CancellationToken cancellationToken) =>
+            Task.FromResult(snapshot);
+
+        public Task<string?> GetFileAsync(PullRequestRef pullRequest, string path, CancellationToken cancellationToken) =>
+            Task.FromResult(path == RulesPath ? rulesMarkdown : null);
+    }
+
+    // Stands in for the MCP server: one read tool, enough to see that tool calls are recorded.
+    private sealed class InMemoryToolsConnector : IPullRequestToolsConnector
+    {
+        public Task<PullRequestToolsConnection> ConnectAsync(
+            PullRequestRef pullRequest,
+            CancellationToken cancellationToken) =>
+            Task.FromResult(new PullRequestToolsConnection(
+                [AIFunctionFactory.Create(() => "Title: Add order discounts", "get_pull_request")],
+                connection: null));
+    }
+
+    private sealed class FakeChatClientFactory(Func<IChatClient> create) : IAgentChatClientFactory
+    {
+        public IChatClient Create() => create();
+    }
+}
