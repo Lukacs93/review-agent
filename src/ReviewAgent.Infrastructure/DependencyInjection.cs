@@ -31,7 +31,8 @@ public static class DependencyInjection
     {
         ArgumentNullException.ThrowIfNull(services);
 
-        // The connection string is read when a context is first created, not here, so tests can override it.
+        // The connection string is read when a context is first created, not here, so a value configured after
+        // this registration still applies.
         services.AddDbContext<ReviewAgentDbContext>((serviceProvider, options) =>
         {
             var connectionString = serviceProvider.GetRequiredService<IConfiguration>()
