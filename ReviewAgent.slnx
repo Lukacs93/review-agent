@@ -13,11 +13,13 @@
     <Project Path="src/ReviewAgent.Application/ReviewAgent.Application.csproj" />
     <Project Path="src/ReviewAgent.Infrastructure/ReviewAgent.Infrastructure.csproj" />
     <Project Path="src/ReviewAgent.Api/ReviewAgent.Api.csproj" />
+    <Project Path="src/ReviewAgent.McpServer/ReviewAgent.McpServer.csproj" />
   </Folder>
   <Folder Name="/tests/">
     <Project Path="tests/ReviewAgent.Application.Tests/ReviewAgent.Application.Tests.csproj" />
     <Project Path="tests/ReviewAgent.Domain.Tests/ReviewAgent.Domain.Tests.csproj" />
     <Project Path="tests/ReviewAgent.Infrastructure.Tests/ReviewAgent.Infrastructure.Tests.csproj" />
     <Project Path="tests/ReviewAgent.Integration.Tests/ReviewAgent.Integration.Tests.csproj" />
+    <Project Path="tests/ReviewAgent.McpServer.Tests/ReviewAgent.McpServer.Tests.csproj" />
   </Folder>
 </Solution>

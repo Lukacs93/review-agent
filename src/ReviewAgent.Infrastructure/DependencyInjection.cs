@@ -22,7 +22,12 @@ public static class DependencyInjection
     /// <summary>The name of the connection string in the configuration: <c>ConnectionStrings:ReviewAgent</c>.</summary>
     public const string ConnectionStringName = "ReviewAgent";
 
-    public static IServiceCollection AddInfrastructure(this IServiceCollection services)
+    /// <summary>Everything the Infrastructure layer provides: the database and the pull request sources.</summary>
+    public static IServiceCollection AddInfrastructure(this IServiceCollection services) =>
+        services.AddPersistence().AddSourceControl();
+
+    /// <summary>The event store: the EF Core context and the review run repository.</summary>
+    public static IServiceCollection AddPersistence(this IServiceCollection services)
     {
         ArgumentNullException.ThrowIfNull(services);
 
@@ -37,6 +42,17 @@ public static class DependencyInjection
         });
 
         services.AddScoped<IReviewRunRepository, EfReviewRunRepository>();
+
+        return services;
+    }
+
+    /// <summary>
+    /// The pull request sources: saved (offline) and GitHub. The configuration decides which one
+    /// <see cref="IPullRequestSource"/> resolves to.
+    /// </summary>
+    public static IServiceCollection AddSourceControl(this IServiceCollection services)
+    {
+        ArgumentNullException.ThrowIfNull(services);
 
         services.AddOptions<PullRequestSourceOptions>()
             .BindConfiguration(PullRequestSourceOptions.SectionName)

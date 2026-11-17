@@ -21,6 +21,10 @@
     <PackageVersion Include="Microsoft.EntityFrameworkCore.Sqlite" Version="10.0.15" />
     <PackageVersion Include="Microsoft.EntityFrameworkCore.Tools" Version="10.0.15" />
 
+    <!-- Model Context Protocol -->
+    <PackageVersion Include="ModelContextProtocol" Version="2.3.0" />
+    <PackageVersion Include="ModelContextProtocol.AspNetCore" Version="2.3.0" />
+
     <!-- Transitive pins (security fixes) -->
     <!-- GHSA-v5pm-xwqc-g5wc: stack overflow on circular schema references, fixed in 2.7.5 -->
     <PackageVersion Include="Microsoft.OpenApi" Version="2.7.5" />
