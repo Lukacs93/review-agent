@@ -94,6 +94,8 @@ public sealed class ReviewEventSerializerTests
         new CommentApproved(RunId, Now, CommentId),
         new CommentEdited(RunId, Now, CommentId, "Move this query to a handler."),
         new CommentDiscarded(RunId, Now, CommentId),
+        new PublishingRequested(RunId, Now),
+        new PublishingFailed(RunId, Now, "GitHub answered 422."),
         new CommentPublished(RunId, Now, CommentId),
         new ReviewPublished(RunId, Now),
     ];
