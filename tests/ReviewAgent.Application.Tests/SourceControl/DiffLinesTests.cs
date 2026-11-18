@@ -11,10 +11,10 @@ public sealed class DiffLinesTests
         const string patch =
             "@@ -1,4 +1,5 @@\n using A;\n+using B;\n using C;\n-using D;\n+using E;\n\\ No newline at end of file";
 
-        var lines = DiffLines.InNewFile(patch);
+        var lines = LineNumbersInNewFile(patch);
 
         int[] expected = [1, 2, 3, 4];
-        Assert.Equal(expected, lines.Order());
+        Assert.Equal(expected, lines);
     }
 
     [Fact]
@@ -22,19 +22,19 @@ public sealed class DiffLinesTests
     {
         const string patch = "@@ -1,2 +1,2 @@\n first\n+second\n@@ -10,2 +20,2 @@ class Order\n context\n+added";
 
-        var lines = DiffLines.InNewFile(patch);
+        var lines = LineNumbersInNewFile(patch);
 
         int[] expected = [1, 2, 20, 21];
-        Assert.Equal(expected, lines.Order());
+        Assert.Equal(expected, lines);
     }
 
     [Fact]
     public void Windows_line_endings_are_read_the_same()
     {
-        var lines = DiffLines.InNewFile("@@ -0,0 +1,2 @@\r\n+one\r\n+two\r\n");
+        var lines = LineNumbersInNewFile("@@ -0,0 +1,2 @@\r\n+one\r\n+two\r\n");
 
         int[] expected = [1, 2];
-        Assert.Equal(expected, lines.Order());
+        Assert.Equal(expected, lines);
     }
 
     [Fact]
@@ -56,13 +56,20 @@ public sealed class DiffLinesTests
     }
 
     [Fact]
-    public void Empty_patch_has_no_lines() => Assert.Empty(DiffLines.InNewFile(string.Empty));
+    public void Empty_patch_has_no_lines() => Assert.Empty(DiffLines.Number(string.Empty));
 
     [Fact]
     public void Diff_without_a_block_header_is_rejected()
     {
-        var error = Assert.Throws<FormatException>(() => DiffLines.InNewFile("+added line\n unchanged line"));
+        var error = Assert.Throws<FormatException>(() => DiffLines.Number("+added line\n unchanged line"));
 
         Assert.Equal(SourceControlErrors.UnreadableDiff, error.Message);
     }
+
+    // The line numbers in the new file, in order: of the added and unchanged lines.
+    private static List<int> LineNumbersInNewFile(string patch) =>
+        DiffLines.Number(patch)
+            .Where(diffLine => diffLine.NewFileLine.HasValue)
+            .Select(diffLine => diffLine.NewFileLine.GetValueOrDefault())
+            .ToList();
 }
