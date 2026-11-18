@@ -33,6 +33,12 @@ public sealed class ReviewRun
     public string? FailureReason { get; private set; }
 
     /// <summary>
+    /// The verifier agent's closing sentence: how many comments it kept and rejected; <see langword="null"/> if it
+    /// did not run.
+    /// </summary>
+    public string? VerifierSummary { get; private set; }
+
+    /// <summary>
     /// The pull request's latest commit when the agent read it; <see langword="null"/> until the review has finished,
     /// or when the source does not tell it.
     /// </summary>
@@ -123,6 +129,15 @@ public sealed class ReviewRun
         }
 
         Raise(new CommentRejected(Id, now, commentId, reason.Trim()));
+    }
+
+    /// <summary>Records the verifier agent's closing sentence, when it has double-checked the comments.</summary>
+    public void FinishVerification(string summary, DateTimeOffset now)
+    {
+        EnsureStatus(ReviewStatus.Running, ReviewRunErrors.VerifyWhenNotRunning);
+        EnsureNotBlank(summary, ReviewRunErrors.VerifierSummaryRequired);
+
+        Raise(new VerificationFinished(Id, now, summary.Trim()));
     }
 
     public void Finish(string summary, string? reviewedCommitSha, DateTimeOffset now)
@@ -265,6 +280,10 @@ public sealed class ReviewRun
 
             case CommentRejected rejected:
                 FindComment(rejected.CommentId).Reject(rejected.Reason);
+                break;
+
+            case VerificationFinished verificationFinished:
+                VerifierSummary = verificationFinished.Summary;
                 break;
 
             case ReviewFinished finished:

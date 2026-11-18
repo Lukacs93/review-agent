@@ -4,6 +4,7 @@ using Microsoft.Extensions.Options;
 using ReviewAgent.Application.Reviews;
 using ReviewAgent.Application.Reviews.Commands.FailReview;
 using ReviewAgent.Application.Reviews.Commands.FinishReview;
+using ReviewAgent.Application.Reviews.Commands.FinishVerification;
 using ReviewAgent.Application.Reviews.Commands.ProposeComment;
 using ReviewAgent.Application.Reviews.Commands.RecordToolCall;
 using ReviewAgent.Application.Reviews.Commands.RejectComment;
@@ -252,6 +253,7 @@ public sealed class ReviewAgentRunnerTests : IDisposable
                 new RecordToolCallCommandHandler(_repository, TimeProvider.System),
                 new ProposeCommentCommandHandler(_repository, TimeProvider.System),
                 new RejectCommentCommandHandler(_repository, TimeProvider.System),
+                new FinishVerificationCommandHandler(_repository, TimeProvider.System),
                 new FinishReviewCommandHandler(_repository, TimeProvider.System),
                 new FailReviewCommandHandler(_repository, TimeProvider.System)),
             Options.Create(new AgentOptions
