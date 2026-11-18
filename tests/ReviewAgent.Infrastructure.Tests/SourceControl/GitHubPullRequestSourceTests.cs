@@ -12,8 +12,10 @@ public sealed class GitHubPullRequestSourceTests : IDisposable
 {
     private const string Token = "test-token";
     private const string PullRequestPath = "/repos/test/demo/pulls/1";
-    private const string FirstFilesPagePath = "/repos/test/demo/pulls/1/files?per_page=100&page=1";
-    private const string SecondFilesPagePath = "/repos/test/demo/pulls/1/files?per_page=100&page=2";
+    private const string FirstFilesPagePath = "/repos/test/demo/pulls/1/files";
+
+    // GitHub's next-page links point to the repository by its ID, not by its name.
+    private const string SecondFilesPagePath = "/repositories/42/pulls/1/files?page=2";
     private const string OrderContentPath = "/repos/test/demo/contents/src/Order.cs?ref=refs/pull/1/head";
 
     private const string PullRequestJson = """
@@ -64,18 +66,38 @@ public sealed class GitHubPullRequestSourceTests : IDisposable
             file => Assert.Equal(new ChangedFile("logo.png", FileChangeStatus.Modified, string.Empty), file));
     }
 
+    // The end of the list comes from the Link header, not from the number of files on a page.
     [Fact]
     public async Task Files_on_several_pages_are_all_read()
     {
-        var fullPage = Enumerable.Range(1, 100)
+        var firstPage = Enumerable.Range(1, 30)
             .Select(index => new { filename = $"src/File{index}.cs", status = "added", patch = "@@" });
         _handler.Respond(PullRequestPath, HttpStatusCode.OK, PullRequestJson);
-        _handler.Respond(FirstFilesPagePath, HttpStatusCode.OK, JsonSerializer.Serialize(fullPage));
+        _handler.Respond(
+            FirstFilesPagePath,
+            HttpStatusCode.OK,
+            JsonSerializer.Serialize(firstPage),
+            nextPage: new Uri("https://api.github.com" + SecondFilesPagePath));
         _handler.Respond(SecondFilesPagePath, HttpStatusCode.OK, FilesJson);
 
         var snapshot = await Source.GetPullRequestAsync(PullRequest, CancellationToken.None);
 
-        Assert.Equal(104, snapshot.Files.Count);
+        Assert.Equal(34, snapshot.Files.Count);
+    }
+
+    // The client sends the token with every request, so it must not follow a link to another host.
+    [Fact]
+    public async Task Next_page_outside_the_api_is_not_followed()
+    {
+        var elsewhere = new Uri("https://example.com/files?page=2");
+        _handler.Respond(PullRequestPath, HttpStatusCode.OK, PullRequestJson);
+        _handler.Respond(FirstFilesPagePath, HttpStatusCode.OK, FilesJson, nextPage: elsewhere);
+
+        var error = await Assert.ThrowsAsync<InvalidOperationException>(
+            () => Source.GetPullRequestAsync(PullRequest, CancellationToken.None));
+
+        Assert.Equal(GitHubErrors.NextPageOutsideApi(elsewhere), error.Message);
+        Assert.DoesNotContain(_handler.Requests, request => request.RequestUri!.Host == "example.com");
     }
 
     [Fact]
