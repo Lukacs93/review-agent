@@ -49,7 +49,8 @@ internal sealed class ProposeCommentTool
 
     public async Task<string> ProposeAsync(
         [Description("Path of a changed file, as listed by get_pull_request.")] string path,
-        [Description("Line number in the new version of the file. It must be a line shown in the file's diff.")]
+        [Description(
+            "The line number get_diff shows before the line, for example 13 for '13 | +    public decimal ...'.")]
         int line,
         [Description("ID of the team rule the code breaks, for example ARCH-01.")] string ruleId,
         [Description("The comment for the developer: what is wrong and why, in one or two sentences.")] string body,

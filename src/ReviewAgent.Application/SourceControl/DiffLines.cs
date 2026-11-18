@@ -4,8 +4,9 @@ using ReviewAgent.Application.SourceControl.Errors;
 namespace ReviewAgent.Application.SourceControl;
 
 /// <summary>
-/// Finds the line numbers a review comment may be placed on: the lines of the changed file that its diff shows.
-/// GitHub rejects a comment on any other line, so the agent's comments are checked against these.
+/// Reads the line numbers of a diff: which line of the changed file each diff line is. They tell where a review
+/// comment may be placed (GitHub rejects a comment on any other line), and they are shown to the agent next to the
+/// diff, so it reads the line numbers instead of counting them.
 /// </summary>
 /// <remarks>
 /// A diff shows a file's changes in blocks. Each block starts with a header line; the number after the
@@ -20,7 +21,7 @@ namespace ReviewAgent.Application.SourceControl;
 /// +    CancelOrderHandler cancel,   added      → line 11
 /// +    OrdersDbContext db)          added      → line 12
 /// </code>
-/// For this block the result is 10, 11 and 12.
+/// For this block the lines in the new file are 10, 11 and 12.
 /// </remarks>
 public static class DiffLines
 {
@@ -31,11 +32,22 @@ public static class DiffLines
     /// The line numbers in the new file of the added and unchanged lines the diff shows. Throws
     /// <see cref="FormatException"/> when the diff has content but no block header.
     /// </summary>
-    public static IReadOnlySet<int> InNewFile(string patch)
+    public static IReadOnlySet<int> InNewFile(string patch) =>
+        Number(patch)
+            .Select(diffLine => diffLine.NewFileLine)
+            .OfType<int>() // only the lines that have a number in the new file
+            .ToHashSet();
+
+    /// <summary>
+    /// Every line of the diff, in order, with its line number in the new file: added and unchanged lines have one;
+    /// block headers, removed lines and notes have none. Throws <see cref="FormatException"/> when the diff has
+    /// content but no block header.
+    /// </summary>
+    public static IReadOnlyList<NumberedDiffLine> Number(string patch)
     {
         ArgumentNullException.ThrowIfNull(patch);
 
-        var linesInNewFile = new HashSet<int>();
+        var numberedLines = new List<NumberedDiffLine>();
 
         // The line number in the new file of the next added or unchanged line. Null until the first block header:
         // lines before it belong to no block.
@@ -43,24 +55,34 @@ public static class DiffLines
 
         foreach (var diffLine in SplitLines(patch))
         {
-            if (TryReadBlockStart(diffLine, out var blockStart))
+            if (diffLine.Length == 0)
             {
-                nextNewFileLine = blockStart;
                 continue;
             }
 
-            if (nextNewFileLine is null || diffLine.Length == 0)
+            if (TryReadBlockStart(diffLine, out var blockStart))
+            {
+                nextNewFileLine = blockStart;
+                numberedLines.Add(new NumberedDiffLine(diffLine, NewFileLine: null));
+                continue;
+            }
+
+            if (nextNewFileLine is null)
             {
                 continue;
             }
 
             // Only added and unchanged lines are in the new file, so only they get a line number there. Removed
-            // lines ('-') and the "\ No newline at end of file" note are skipped without counting.
-            var marker = diffLine[0];
+            // lines ('-') and the "\ No newline at end of file" note get none, and are not counted.
+            var marker = diffLine.First();
             if (marker is AddedLineMarker or UnchangedLineMarker)
             {
-                linesInNewFile.Add(nextNewFileLine.Value);
+                numberedLines.Add(new NumberedDiffLine(diffLine, nextNewFileLine));
                 nextNewFileLine++;
+            }
+            else
+            {
+                numberedLines.Add(new NumberedDiffLine(diffLine, NewFileLine: null));
             }
         }
 
@@ -71,7 +93,7 @@ public static class DiffLines
             throw new FormatException(SourceControlErrors.UnreadableDiff);
         }
 
-        return linesInNewFile;
+        return numberedLines;
     }
 
     /// <summary>

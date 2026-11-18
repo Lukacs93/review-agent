@@ -18,8 +18,8 @@ internal static class ProposeCommentErrors
     public static string LineNotInDiff(string path, int line) =>
         string.Create(
             CultureInfo.InvariantCulture,
-            $"{Prefix}line {line} of '{path}' is not in the diff. Use a line number of the new file from the "
-            + $"@@ headers of get_diff (an added or unchanged line shown in the diff).");
+            $"{Prefix}line {line} of '{path}' is not in the diff. Use the line number get_diff shows before an "
+            + $"added or unchanged line.");
 
     public static string UnknownRule(string ruleId, IEnumerable<string> knownRuleIds) =>
         $"{Prefix}'{ruleId}' is not a team rule. Use one of: {string.Join(", ", knownRuleIds)}.";
