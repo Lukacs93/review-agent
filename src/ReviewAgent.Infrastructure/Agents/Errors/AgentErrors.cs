@@ -32,10 +32,6 @@ internal static class AgentErrors
     public const string NoSummary =
         "The agent stopped without a summary, possibly because it reached the tool call limit (Agent:MaxToolRounds).";
 
-    public const string UnreadableDiff =
-        "A file's diff has no block header (\"@@ -a,b +c,d @@\"), so its line numbers cannot be read. "
-        + "The pull request source returned a diff in an unexpected format.";
-
     public static string PromptMissing(string resourceName) =>
         $"The prompt '{resourceName}' is not built into the application. Check the EmbeddedResource item in "
         + "ReviewAgent.Infrastructure.csproj.";

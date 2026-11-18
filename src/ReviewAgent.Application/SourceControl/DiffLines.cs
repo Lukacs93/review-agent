@@ -1,7 +1,7 @@
 using System.Globalization;
-using ReviewAgent.Infrastructure.Agents.Errors;
+using ReviewAgent.Application.SourceControl.Errors;
 
-namespace ReviewAgent.Infrastructure.Agents.Tools;
+namespace ReviewAgent.Application.SourceControl;
 
 /// <summary>
 /// Finds the line numbers a review comment may be placed on: the lines of the changed file that its diff shows.
@@ -22,7 +22,7 @@ namespace ReviewAgent.Infrastructure.Agents.Tools;
 /// </code>
 /// For this block the result is 10, 11 and 12.
 /// </remarks>
-internal static class DiffLines
+public static class DiffLines
 {
     private const char AddedLineMarker = '+';
     private const char UnchangedLineMarker = ' ';
@@ -68,7 +68,7 @@ internal static class DiffLines
         // returning no lines, which would silently reject every comment on the file.
         if (nextNewFileLine is null && !string.IsNullOrWhiteSpace(patch))
         {
-            throw new FormatException(AgentErrors.UnreadableDiff);
+            throw new FormatException(SourceControlErrors.UnreadableDiff);
         }
 
         return linesInNewFile;

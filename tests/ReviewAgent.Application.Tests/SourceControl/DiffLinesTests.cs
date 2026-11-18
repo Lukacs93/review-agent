@@ -1,7 +1,7 @@
-using ReviewAgent.Infrastructure.Agents.Errors;
-using ReviewAgent.Infrastructure.Agents.Tools;
+using ReviewAgent.Application.SourceControl;
+using ReviewAgent.Application.SourceControl.Errors;
 
-namespace ReviewAgent.Infrastructure.Tests.Agents.Tools;
+namespace ReviewAgent.Application.Tests.SourceControl;
 
 public sealed class DiffLinesTests
 {
@@ -45,6 +45,6 @@ public sealed class DiffLinesTests
     {
         var error = Assert.Throws<FormatException>(() => DiffLines.InNewFile("+added line\n unchanged line"));
 
-        Assert.Equal(AgentErrors.UnreadableDiff, error.Message);
+        Assert.Equal(SourceControlErrors.UnreadableDiff, error.Message);
     }
 }
