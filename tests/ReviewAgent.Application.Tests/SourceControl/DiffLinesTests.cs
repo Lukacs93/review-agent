@@ -38,6 +38,24 @@ public sealed class DiffLinesTests
     }
 
     [Fact]
+    public void Every_diff_line_is_kept_with_its_number_in_the_new_file()
+    {
+        const string patch = "@@ -8,3 +10,3 @@\n context\n-removed\n+added\n\\ No newline at end of file";
+
+        var lines = DiffLines.Number(patch);
+
+        NumberedDiffLine[] expected =
+        [
+            new("@@ -8,3 +10,3 @@", NewFileLine: null),
+            new(" context", NewFileLine: 10),
+            new("-removed", NewFileLine: null),
+            new("+added", NewFileLine: 11),
+            new("\\ No newline at end of file", NewFileLine: null),
+        ];
+        Assert.Equal(expected, lines);
+    }
+
+    [Fact]
     public void Empty_patch_has_no_lines() => Assert.Empty(DiffLines.InNewFile(string.Empty));
 
     [Fact]

@@ -52,6 +52,20 @@ public sealed class PullRequestToolsTests(WebApplicationFactory<Program> factory
         Assert.Contains("+    public void MarkAsShipped(DateTimeOffset now)", TextOf(result), StringComparison.Ordinal);
     }
 
+    // The model reads the line of a comment from the diff instead of counting it.
+    [Fact]
+    public async Task Diff_lines_carry_their_line_number_in_the_new_file()
+    {
+        await using var client = await ConnectAsync(SamplePullRequest);
+
+        var result = await CallAsync(client, "get_diff", ("path", "src/Orders.Api/Domain/Order.cs"));
+
+        AssertSucceeded(result);
+        var text = TextOf(result);
+        Assert.Contains("13 | +    public decimal DiscountAmount { get; set; }", text, StringComparison.Ordinal);
+        Assert.Contains("   | @@ -9,6 +9,8 @@", text, StringComparison.Ordinal);
+    }
+
     [Fact]
     public async Task Diff_of_an_unchanged_file_is_an_error()
     {
@@ -73,6 +87,19 @@ public sealed class PullRequestToolsTests(WebApplicationFactory<Program> factory
 
         AssertSucceeded(result);
         Assert.Contains("class OrderTests", TextOf(result), StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task File_lines_carry_their_line_number()
+    {
+        await using var client = await ConnectAsync(SamplePullRequest);
+
+        var result = await CallAsync(client, "get_file", ("path", "src/Orders.Api/Domain/Order.cs"));
+
+        AssertSucceeded(result);
+        var text = TextOf(result);
+        Assert.StartsWith(" 1 | namespace Orders.Api.Domain;", text, StringComparison.Ordinal);
+        Assert.Contains("13 |     public decimal DiscountAmount { get; set; }", text, StringComparison.Ordinal);
     }
 
     [Fact]
