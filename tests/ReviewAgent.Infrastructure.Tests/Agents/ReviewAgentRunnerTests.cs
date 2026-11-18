@@ -6,6 +6,7 @@ using ReviewAgent.Application.Reviews.Commands.FailReview;
 using ReviewAgent.Application.Reviews.Commands.FinishReview;
 using ReviewAgent.Application.Reviews.Commands.ProposeComment;
 using ReviewAgent.Application.Reviews.Commands.RecordToolCall;
+using ReviewAgent.Application.Reviews.Commands.RejectComment;
 using ReviewAgent.Application.SourceControl;
 using ReviewAgent.Domain.Reviews;
 using ReviewAgent.Domain.Rules;
@@ -127,7 +128,10 @@ public sealed class ReviewAgentRunnerTests : IDisposable
 
     public void Dispose() => _database.Dispose();
 
-    private ReviewAgentRunner Runner(Func<IChatClient> createModel, string? rulesMarkdown = TestData.RulesMarkdown) =>
+    private ReviewAgentRunner Runner(
+        Func<IChatClient> createModel,
+        string? rulesMarkdown = TestData.RulesMarkdown,
+        bool verifierEnabled = false) =>
         new(
             _repository,
             new FakePullRequestSource(TestData.PullRequest(FilePath, Patch), rulesMarkdown),
@@ -136,6 +140,7 @@ public sealed class ReviewAgentRunnerTests : IDisposable
             new ReviewAgentCommands(
                 new RecordToolCallCommandHandler(_repository, TimeProvider.System),
                 new ProposeCommentCommandHandler(_repository, TimeProvider.System),
+                new RejectCommentCommandHandler(_repository, TimeProvider.System),
                 new FinishReviewCommandHandler(_repository, TimeProvider.System),
                 new FailReviewCommandHandler(_repository, TimeProvider.System)),
             Options.Create(new AgentOptions
@@ -146,6 +151,7 @@ public sealed class ReviewAgentRunnerTests : IDisposable
                 TeamRulesPath = RulesPath,
                 MaxToolRounds = 10,
                 Timeout = TimeSpan.FromMinutes(1),
+                Verifier = new VerifierOptions { Enabled = verifierEnabled },
             }),
             NullLoggerFactory.Instance);
 
