@@ -12,6 +12,9 @@ internal sealed class StubHttpMessageHandler : HttpMessageHandler
 
     public List<HttpRequestMessage> Requests { get; } = [];
 
+    /// <summary>The bodies of the requests, in order; read when the request is sent, empty when it has none.</summary>
+    public List<string> RequestBodies { get; } = [];
+
     /// <summary>
     /// Prepares a response for a path and query, for example <c>/repos/test/demo/pulls/1</c>. With
     /// <paramref name="nextPage"/>, the response's <c>Link</c> header points to that address as the next page.
@@ -27,16 +30,18 @@ internal sealed class StubHttpMessageHandler : HttpMessageHandler
         queue.Enqueue(new PreparedResponse(status, content, nextPage));
     }
 
-    protected override Task<HttpResponseMessage> SendAsync(
+    protected override async Task<HttpResponseMessage> SendAsync(
         HttpRequestMessage request,
         CancellationToken cancellationToken)
     {
         Requests.Add(request);
+        RequestBodies.Add(request.Content is null
+            ? string.Empty
+            : await request.Content.ReadAsStringAsync(cancellationToken));
 
         if (!_responses.TryGetValue(request.RequestUri!.PathAndQuery, out var queue))
         {
-            return Task.FromResult(
-                new HttpResponseMessage(HttpStatusCode.NotFound) { Content = new StringContent(string.Empty) });
+            return new HttpResponseMessage(HttpStatusCode.NotFound) { Content = new StringContent(string.Empty) };
         }
 
         var prepared = queue.Count > 1 ? queue.Dequeue() : queue.Peek();
@@ -46,7 +51,7 @@ internal sealed class StubHttpMessageHandler : HttpMessageHandler
             response.Headers.Add("Link", $"<{prepared.NextPage}>; rel=\"next\"");
         }
 
-        return Task.FromResult(response);
+        return response;
     }
 
     private sealed record PreparedResponse(HttpStatusCode Status, string Content, Uri? NextPage);

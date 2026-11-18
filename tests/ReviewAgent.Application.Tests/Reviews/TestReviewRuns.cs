@@ -41,6 +41,28 @@ internal static class TestReviewRuns
         return (run.Id.Value, commentId.Value);
     }
 
+    /// <summary>A finished run with its one comment approved; publishing has not been asked for yet.</summary>
+    public static async Task<Guid> SaveApprovedRunAsync(IReviewRunRepository repository)
+    {
+        var (runId, commentId) = await SaveFinishedRunWithOneCommentAsync(repository);
+
+        var run = await repository.GetAsync(new ReviewRunId(runId), CancellationToken.None);
+        run.ApproveComment(new CommentId(commentId), Now);
+        await repository.SaveAsync(run, CancellationToken.None);
+        return runId;
+    }
+
+    /// <summary>A run being published: its one comment approved, and publishing asked for.</summary>
+    public static async Task<Guid> SavePublishingRunAsync(IReviewRunRepository repository)
+    {
+        var runId = await SaveApprovedRunAsync(repository);
+
+        var run = await repository.GetAsync(new ReviewRunId(runId), CancellationToken.None);
+        run.RequestPublishing(Now);
+        await repository.SaveAsync(run, CancellationToken.None);
+        return runId;
+    }
+
     /// <summary>A run the agent is still working on, with one proposed comment.</summary>
     public static async Task<(Guid RunId, Guid CommentId)> SaveRunningRunWithOneCommentAsync(
         IReviewRunRepository repository)
