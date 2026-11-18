@@ -15,9 +15,6 @@ namespace ReviewAgent.Infrastructure.SourceControl.GitHub;
 /// </summary>
 internal sealed class GitHubPullRequestSource(HttpClient httpClient) : IPullRequestSource
 {
-    // The most files GitHub returns on one page of the pull request files endpoint.
-    private const int FilesPerPage = 100;
-
     // Makes the contents endpoint return the file itself instead of a JSON description.
     private const string RawContentMediaType = "application/vnd.github.raw+json";
 
@@ -93,20 +90,24 @@ internal sealed class GitHubPullRequestSource(HttpClient httpClient) : IPullRequ
         CancellationToken cancellationToken)
     {
         var files = new List<ChangedFile>();
-        for (var page = 1; ; page++)
+        Uri? pageUri = FilesUri(pullRequest);
+        while (pageUri is not null)
         {
-            var batch = await GetJsonAsync<List<GitHubChangedFile>>(
-                FilesUri(pullRequest, page),
-                cancellationToken) ?? [];
-
-            files.AddRange(batch.Select(ToChangedFile));
-
-            // A page that is not full is the last one.
-            if (batch.Count < FilesPerPage)
+            using var response = await httpClient.GetAsync(pageUri, cancellationToken);
+            if (response.StatusCode == HttpStatusCode.NotFound)
             {
                 return files;
             }
+
+            response.EnsureSuccessStatusCode();
+
+            var page = await response.Content.ReadFromJsonAsync<List<GitHubChangedFile>>(cancellationToken) ?? [];
+            files.AddRange(page.Select(ToChangedFile));
+
+            pageUri = GitHubPagination.NextPageUri(response, httpClient.BaseAddress!);
         }
+
+        return files;
     }
 
     /// <summary>Reads a JSON answer; <see langword="null"/> when GitHub answers 404 Not Found.</summary>
@@ -139,10 +140,10 @@ internal sealed class GitHubPullRequestSource(HttpClient httpClient) : IPullRequ
             CultureInfo.InvariantCulture,
             $"{RepositoryPath(pullRequest)}/pulls/{pullRequest.Number}"));
 
-    private static Uri FilesUri(PullRequestRef pullRequest, int page) =>
+    private static Uri FilesUri(PullRequestRef pullRequest) =>
         Relative(string.Create(
             CultureInfo.InvariantCulture,
-            $"{RepositoryPath(pullRequest)}/pulls/{pullRequest.Number}/files?per_page={FilesPerPage}&page={page}"));
+            $"{RepositoryPath(pullRequest)}/pulls/{pullRequest.Number}/files"));
 
     // "refs/pull/{number}/head" is the pull request's latest commit, also when it comes from a fork.
     private static Uri ContentUri(PullRequestRef pullRequest, string path) =>

@@ -5,4 +5,7 @@ internal static class GitHubErrors
 {
     public static string InvalidPath(string path) =>
         $"'{path}' is not a valid file path. Use a path relative to the repository root, without '.' or '..' parts.";
+
+    public static string NextPageOutsideApi(Uri nextPage) =>
+        $"GitHub pointed the next page to '{nextPage}', outside its API address, so it was not followed.";
 }
