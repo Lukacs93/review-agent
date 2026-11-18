@@ -5,7 +5,7 @@ namespace ReviewAgent.Api.Agent;
 
 /// <summary>
 /// An in-memory queue of review runs. The API writes to it when a review starts, and <see cref="ReviewWorker"/>
-/// reads from it. Runs still queued when the application stops are lost; they stay in the Running status.
+/// reads from it. Runs still queued when the application stops are lost; they are failed at the next start.
 /// </summary>
 internal sealed class ChannelReviewScheduler : IReviewScheduler, IScheduledReviewReader
 {
