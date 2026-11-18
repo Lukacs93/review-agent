@@ -25,6 +25,9 @@ public sealed record ReviewRunDetails
     /// <summary>The agent's summary; <see langword="null"/> until the review has finished.</summary>
     public string? Summary { get; init; }
 
+    /// <summary>The verifier agent's closing sentence; <see langword="null"/> if it did not run.</summary>
+    public string? VerifierSummary { get; init; }
+
     /// <summary>Why the run stopped; <see langword="null"/> unless it failed.</summary>
     public string? FailureReason { get; init; }
 
@@ -47,6 +50,7 @@ public sealed record ReviewRunDetails
             StartedAt = run.StartedAt,
             ToolCallCount = run.ToolCallCount,
             Summary = run.Summary,
+            VerifierSummary = run.VerifierSummary,
             FailureReason = run.FailureReason,
             PublishingFailureReason = run.PublishingFailureReason,
             Comments = run.Comments.Select(ReviewCommentDetails.From).ToList(),

@@ -157,7 +157,7 @@ public sealed class ReviewRunTests
         run.RequestPublishing(Now);
 
         Assert.Equal(ReviewStatus.Publishing, run.Status);
-        Assert.IsType<PublishingRequested>(run.UncommittedEvents[^1]);
+        Assert.IsType<PublishingRequested>(LastEventOf(run));
     }
 
     [Fact]
@@ -314,7 +314,7 @@ public sealed class ReviewRunTests
         var comment = Assert.Single(run.Comments);
         Assert.True(comment.IsRejected);
         Assert.Equal(RejectionReason, comment.RejectionReason);
-        Assert.IsType<CommentRejected>(run.UncommittedEvents[^1]);
+        Assert.IsType<CommentRejected>(LastEventOf(run));
     }
 
     [Fact]
@@ -376,6 +376,46 @@ public sealed class ReviewRunTests
         run.CompletePublishing(Now);
 
         Assert.Equal(ReviewStatus.Published, run.Status);
+    }
+
+    [Fact]
+    public void Verifier_summary_is_kept()
+    {
+        var run = StartedRun();
+
+        run.FinishVerification("Kept 2 comments and rejected 1.", Now);
+
+        Assert.Equal("Kept 2 comments and rejected 1.", run.VerifierSummary);
+        Assert.Equal(ReviewStatus.Running, run.Status);
+        Assert.IsType<VerificationFinished>(LastEventOf(run));
+    }
+
+    [Fact]
+    public void Verifier_summary_is_required()
+    {
+        var run = StartedRun();
+
+        AssertFails(ReviewRunErrors.VerifierSummaryRequired, () => run.FinishVerification(" ", Now));
+    }
+
+    [Fact]
+    public void Verification_cannot_be_recorded_after_the_review_finished()
+    {
+        var run = StartedRun();
+        run.Finish(Summary, CommitSha, Now);
+
+        AssertFails(ReviewRunErrors.VerifyWhenNotRunning, () => run.FinishVerification("Kept 0 comments.", Now));
+    }
+
+    [Fact]
+    public void Verifier_summary_is_rebuilt_from_the_history()
+    {
+        var run = StartedRun();
+        run.FinishVerification("Kept 0 comments.", Now);
+
+        var rebuilt = ReviewRun.FromHistory(run.UncommittedEvents);
+
+        Assert.Equal("Kept 0 comments.", rebuilt.VerifierSummary);
     }
 
     [Fact]
@@ -444,6 +484,9 @@ public sealed class ReviewRunTests
         var error = Assert.Throws<DomainException>(action);
         Assert.Equal(expectedMessage, error.Message);
     }
+
+    // The event the last call raised: the run's last uncommitted event.
+    private static ReviewEvent LastEventOf(ReviewRun run) => run.UncommittedEvents[run.UncommittedEvents.Count - 1];
 
     private static ReviewRun StartedRun() => ReviewRun.Start(ReviewRunId.New(), PullRequest, Now);
 

@@ -4,6 +4,7 @@ using Microsoft.Extensions.Options;
 using ReviewAgent.Application.Reviews;
 using ReviewAgent.Application.Reviews.Commands.FailReview;
 using ReviewAgent.Application.Reviews.Commands.FinishReview;
+using ReviewAgent.Application.Reviews.Commands.FinishVerification;
 using ReviewAgent.Application.Reviews.Commands.ProposeComment;
 using ReviewAgent.Application.Reviews.Commands.RecordToolCall;
 using ReviewAgent.Application.Reviews.Commands.RejectComment;
@@ -23,9 +24,13 @@ public sealed class ReviewAgentRunnerTests : IDisposable
 {
     private const string FilePath = "src/Orders.Api/Controllers/OrdersController.cs";
     private const string Patch = "@@ -8,2 +10,3 @@\n public sealed class OrdersController(\n+    OrdersDbContext db)\n {";
+    // The code of the diff's lines 10 and 11 (see Patch).
+    private const string LineTenCode = "public sealed class OrdersController(";
+    private const string LineElevenCode = "OrdersDbContext db)";
     private const string CommentBody = "Use an application handler instead of the DbContext.";
     private const string Summary = "Adds a discount endpoint. The controller uses the DbContext directly.";
     private const string RulesPath = ".review/rules.md";
+    private const string VerifierSummary = "Kept 1 comment and rejected 1.";
     private const string RejectionReason = "Line 10 only declares the class; the DbContext is on line 11.";
 
     private readonly SqliteTestDatabase _database = new();
@@ -40,7 +45,14 @@ public sealed class ReviewAgentRunnerTests : IDisposable
             ScriptedChatClient.CallsTool("get_pull_request"),
             ScriptedChatClient.CallsTool(
                 ProposeCommentTool.Name,
-                new() { ["path"] = FilePath, ["line"] = 11, ["ruleId"] = "ARCH-01", ["body"] = CommentBody }),
+                new()
+                {
+                    ["path"] = FilePath,
+                    ["line"] = 11,
+                    ["lineCode"] = LineElevenCode,
+                    ["ruleId"] = "ARCH-01",
+                    ["body"] = CommentBody,
+                }),
             ScriptedChatClient.Answers(Summary));
         var runId = await StartRunAsync();
 
@@ -63,7 +75,14 @@ public sealed class ReviewAgentRunnerTests : IDisposable
         var model = new ScriptedChatClient(
             ScriptedChatClient.CallsTool(
                 ProposeCommentTool.Name,
-                new() { ["path"] = FilePath, ["line"] = 99, ["ruleId"] = "ARCH-01", ["body"] = CommentBody }),
+                new()
+                {
+                    ["path"] = FilePath,
+                    ["line"] = 99,
+                    ["lineCode"] = "Not in the diff.",
+                    ["ruleId"] = "ARCH-01",
+                    ["body"] = CommentBody,
+                }),
             ScriptedChatClient.Answers(Summary));
         var runId = await StartRunAsync();
 
@@ -132,13 +151,13 @@ public sealed class ReviewAgentRunnerTests : IDisposable
     public async Task Verifier_rejects_the_comment_the_code_does_not_support()
     {
         var model = new ScriptedChatClient(
-            ProposesComment(line: 10),
-            ProposesComment(line: 11),
+            ProposesComment(line: 10, LineTenCode),
+            ProposesComment(line: 11, LineElevenCode),
             ScriptedChatClient.Answers(Summary),
             ScriptedChatClient.CallsToolWith(
                 RejectCommentTool.Name,
                 messages => new() { ["commentId"] = FirstCommentId(messages), ["reason"] = RejectionReason }),
-            ScriptedChatClient.Answers("Kept 1 comment and rejected 1."));
+            ScriptedChatClient.Answers(VerifierSummary));
         var runId = await StartRunAsync();
 
         await Runner(() => model, verifierEnabled: true).ReviewAsync(runId, CancellationToken.None);
@@ -150,6 +169,7 @@ public sealed class ReviewAgentRunnerTests : IDisposable
         var rejected = Assert.Single(run.Comments, comment => comment.IsRejected);
         Assert.Equal(10, rejected.Location.Line);
         Assert.Equal(RejectionReason, rejected.RejectionReason);
+        Assert.Equal(VerifierSummary, run.VerifierSummary);
     }
 
     [Fact]
@@ -163,12 +183,15 @@ public sealed class ReviewAgentRunnerTests : IDisposable
         var run = await LoadAsync(runId);
         Assert.Equal(ReviewStatus.AwaitingApproval, run.Status);
         Assert.Equal(Summary, run.Summary);
+        Assert.Null(run.VerifierSummary);
     }
 
     [Fact]
     public async Task Verifier_turned_off_does_not_run()
     {
-        var model = new ScriptedChatClient(ProposesComment(line: 11), ScriptedChatClient.Answers(Summary));
+        var model = new ScriptedChatClient(
+            ProposesComment(line: 11, LineElevenCode),
+            ScriptedChatClient.Answers(Summary));
         var runId = await StartRunAsync();
 
         await Runner(() => model, verifierEnabled: false).ReviewAsync(runId, CancellationToken.None);
@@ -176,6 +199,7 @@ public sealed class ReviewAgentRunnerTests : IDisposable
         var run = await LoadAsync(runId);
         Assert.Equal(Summary, run.Summary);
         Assert.DoesNotContain(run.Comments, comment => comment.IsRejected);
+        Assert.Null(run.VerifierSummary);
     }
 
     [Fact]
@@ -183,7 +207,7 @@ public sealed class ReviewAgentRunnerTests : IDisposable
     {
         const string error = "The model is not available.";
         var model = new ScriptedChatClient(
-            ProposesComment(line: 11),
+            ProposesComment(line: 11, LineElevenCode),
             ScriptedChatClient.Answers(Summary),
             ScriptedChatClient.Fails(new InvalidOperationException(error)));
         var runId = await StartRunAsync();
@@ -194,14 +218,22 @@ public sealed class ReviewAgentRunnerTests : IDisposable
         Assert.Equal(ReviewStatus.AwaitingApproval, run.Status);
         Assert.Equal($"{Summary}\n\n{AgentErrors.VerificationFailed(error)}", run.Summary);
         Assert.False(Assert.Single(run.Comments).IsRejected);
+        Assert.Null(run.VerifierSummary);
     }
 
     public void Dispose() => _database.Dispose();
 
-    private static Func<IReadOnlyList<ChatMessage>, ChatResponse> ProposesComment(int line) =>
+    private static Func<IReadOnlyList<ChatMessage>, ChatResponse> ProposesComment(int line, string lineCode) =>
         ScriptedChatClient.CallsTool(
             ProposeCommentTool.Name,
-            new() { ["path"] = FilePath, ["line"] = line, ["ruleId"] = "ARCH-01", ["body"] = CommentBody });
+            new()
+            {
+                ["path"] = FilePath,
+                ["line"] = line,
+                ["lineCode"] = lineCode,
+                ["ruleId"] = "ARCH-01",
+                ["body"] = CommentBody,
+            });
 
     // The verifier's task lists each proposed comment as "- id: <id>"; the first one is the first proposed.
     private static string FirstCommentId(IReadOnlyList<ChatMessage> messages)
@@ -226,6 +258,7 @@ public sealed class ReviewAgentRunnerTests : IDisposable
                 new RecordToolCallCommandHandler(_repository, TimeProvider.System),
                 new ProposeCommentCommandHandler(_repository, TimeProvider.System),
                 new RejectCommentCommandHandler(_repository, TimeProvider.System),
+                new FinishVerificationCommandHandler(_repository, TimeProvider.System),
                 new FinishReviewCommandHandler(_repository, TimeProvider.System),
                 new FailReviewCommandHandler(_repository, TimeProvider.System)),
             Options.Create(new AgentOptions

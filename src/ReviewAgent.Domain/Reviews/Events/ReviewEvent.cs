@@ -30,6 +30,13 @@ public sealed record CommentRejected(ReviewRunId RunId, DateTimeOffset OccurredA
     : ReviewEvent(RunId, OccurredAt);
 
 /// <summary>
+/// The verifier agent finished double-checking the comments; its closing sentence says how many it kept and how
+/// many it rejected.
+/// </summary>
+public sealed record VerificationFinished(ReviewRunId RunId, DateTimeOffset OccurredAt, string Summary)
+    : ReviewEvent(RunId, OccurredAt);
+
+/// <summary>
 /// The agent finished the review. <paramref name="ReviewedCommitSha"/> is the pull request's latest commit when the
 /// agent read it, so the comments can be published on the code they were written for; <see langword="null"/> when
 /// the source does not tell it.

@@ -15,11 +15,18 @@ internal static class ProposeCommentErrors
     public static string FileNotChanged(string path) =>
         $"{Prefix}'{path}' is not changed in this pull request. Use a path listed by get_pull_request.";
 
-    public static string LineNotInDiff(string path, int line) =>
+    public const string LineCodeRequired =
+        Prefix + "give the code of the line, as get_diff shows it after the line number and the '+' or space.";
+
+    public static string CodeNotInDiff(string path, string code) =>
+        $"{Prefix}'{code}' is not an added or unchanged line in the diff of '{path}'. Quote the code of the line "
+        + "exactly as get_diff shows it.";
+
+    public static string CodeOnSeveralLines(string path, string code, IEnumerable<int> lines) =>
         string.Create(
             CultureInfo.InvariantCulture,
-            $"{Prefix}line {line} of '{path}' is not in the diff. Use a line number of the new file from the "
-            + $"@@ headers of get_diff (an added or unchanged line shown in the diff).");
+            $"{Prefix}'{code}' is on several lines of the diff of '{path}' ({string.Join(", ", lines)}). "
+            + $"Give the line number of the one you mean.");
 
     public static string UnknownRule(string ruleId, IEnumerable<string> knownRuleIds) =>
         $"{Prefix}'{ruleId}' is not a team rule. Use one of: {string.Join(", ", knownRuleIds)}.";

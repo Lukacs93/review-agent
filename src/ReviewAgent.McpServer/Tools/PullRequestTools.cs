@@ -45,8 +45,9 @@ internal sealed class PullRequestTools(
 
     [McpServerTool(Name = "get_diff", ReadOnly = true)]
     [Description(
-        "Returns the changes of one changed file in unified diff format. The block headers (@@ -a,b +c,d @@) give "
-        + "the line numbers in the new file; use them for the line of a review comment.")]
+        "Returns the changes of one changed file in unified diff format, with line numbers: each added (+) or "
+        + "unchanged line starts with its line number in the new file, before the '|'. Removed lines (-) and block "
+        + "headers (@@) have none. Use that number as the line of a review comment.")]
     public async Task<string> GetDiffAsync(
         [Description("Path of a changed file, as listed by get_pull_request.")] string path,
         CancellationToken cancellationToken)
@@ -56,17 +57,22 @@ internal sealed class PullRequestTools(
         var file = snapshot.Files.FirstOrDefault(changed => string.Equals(changed.Path, path, StringComparison.Ordinal))
             ?? throw new McpException(ToolErrors.FileNotChanged(path));
 
-        return file.Patch.Length > 0 ? file.Patch : throw new McpException(ToolErrors.NoDiff(path));
+        return file.Patch.Length > 0 ? NumberedText.Diff(file.Patch) : throw new McpException(ToolErrors.NoDiff(path));
     }
 
     [McpServerTool(Name = "get_file", ReadOnly = true)]
     [Description(
-        "Returns the full content of any file in the repository as it is in the pull request, changed or not. "
-        + "Use it for context: the surrounding code, existing tests, or how something is used elsewhere.")]
+        "Returns the full content of any file in the repository as it is in the pull request, changed or not, with "
+        + "its line number before the '|' on each line. Use it for context: the surrounding code, existing tests, "
+        + "or how something is used elsewhere.")]
     public async Task<string> GetFileAsync(
         [Description("Path relative to the repository root, for example src/Orders.Api/Domain/Order.cs.")] string path,
-        CancellationToken cancellationToken) =>
-        await ReadFileAsync(path, cancellationToken) ?? throw new McpException(ToolErrors.FileNotFound(path));
+        CancellationToken cancellationToken)
+    {
+        var content = await ReadFileAsync(path, cancellationToken)
+            ?? throw new McpException(ToolErrors.FileNotFound(path));
+        return NumberedText.File(content);
+    }
 
     [McpServerTool(Name = "get_team_rules", ReadOnly = true)]
     [Description(

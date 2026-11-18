@@ -5,6 +5,7 @@ using ReviewAgent.Application.Reviews;
 using ReviewAgent.Application.Reviews.Agent;
 using ReviewAgent.Application.Reviews.Commands.FailReview;
 using ReviewAgent.Application.Reviews.Commands.FinishReview;
+using ReviewAgent.Application.Reviews.Commands.FinishVerification;
 using ReviewAgent.Application.SourceControl;
 using ReviewAgent.Domain.Reviews;
 using ReviewAgent.Infrastructure.Agents.Errors;
@@ -128,7 +129,8 @@ internal sealed partial class ReviewAgentRunner(
     }
 
     /// <summary>
-    /// Runs the verifier agent on the comments the reviewer proposed; it rejects the ones the code does not support.
+    /// Runs the verifier agent on the comments the reviewer proposed; it rejects the ones the code does not support,
+    /// and its closing sentence is saved.
     /// Returns why the verification failed, or <see langword="null"/>. A failed verification does not fail the
     /// review: the reviewer's comments are kept, and the summary says they were not double-checked.
     /// </summary>
@@ -157,12 +159,13 @@ internal sealed partial class ReviewAgentRunner(
                 pullRequestTools.Append(rejectComment.AsAIFunction()),
                 ReviewInstructions.VerifierName));
 
+        string verifierSummary;
         try
         {
-            await verifier.RunAsync(
+            var response = await verifier.RunAsync(
                 ReviewInstructions.VerifierTaskPrompt(proposed),
                 cancellationToken: cancellationToken);
-            return null;
+            verifierSummary = response.Text;
         }
         catch (Exception exception) when (exception is not OperationCanceledException)
         {
@@ -170,6 +173,17 @@ internal sealed partial class ReviewAgentRunner(
             LogFullModelAnswer(runId, exception);
             return ModelErrorDetails.Describe(exception);
         }
+
+        // Saved outside the try: a failure to save is not a failed verification.
+        if (!string.IsNullOrWhiteSpace(verifierSummary))
+        {
+            LogVerificationFinished(_logger, runId, verifierSummary);
+            await commands.FinishVerification.HandleAsync(
+                new FinishVerificationCommand(runId, verifierSummary),
+                cancellationToken);
+        }
+
+        return null;
     }
 
     private List<AITool> RecordedTools(Guid runId, IEnumerable<AIFunction> tools, string agentName) =>
@@ -190,6 +204,9 @@ internal sealed partial class ReviewAgentRunner(
 
     [LoggerMessage(Level = LogLevel.Warning, Message = "The model's API answered for run {RunId}: {Answer}")]
     private static partial void LogModelAnswer(ILogger logger, Guid runId, string answer);
+
+    [LoggerMessage(Level = LogLevel.Information, Message = "The verifier of run {RunId} answered: {Summary}")]
+    private static partial void LogVerificationFinished(ILogger logger, Guid runId, string summary);
 
     [LoggerMessage(Level = LogLevel.Warning, Message = "The review of run {RunId} failed.")]
     private static partial void LogReviewFailed(ILogger logger, Guid runId, Exception exception);
