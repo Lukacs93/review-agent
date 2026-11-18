@@ -12,6 +12,13 @@ namespace ReviewAgent.Infrastructure.Persistence.Reviews;
 /// </summary>
 internal sealed class EfReviewRunRepository(ReviewAgentDbContext dbContext) : IReviewRunRepository
 {
+    // A run stops running when the agent finishes or fails it; publishing only comes after finishing.
+    private static readonly string[] _runEndingEventTypes =
+    [
+        ReviewEventSerializer.TypeNameOf(typeof(ReviewFinished)),
+        ReviewEventSerializer.TypeNameOf(typeof(ReviewFailed)),
+    ];
+
     public async Task<ReviewRun?> FindAsync(ReviewRunId id, CancellationToken cancellationToken)
     {
         var storedEvents = await dbContext.ReviewEvents
@@ -64,6 +71,19 @@ internal sealed class EfReviewRunRepository(ReviewAgentDbContext dbContext) : IR
         }
 
         run.ClearUncommittedEvents();
+    }
+
+    public async Task<IReadOnlyList<ReviewRunId>> FindRunningIdsAsync(CancellationToken cancellationToken)
+    {
+        // Runs without an event that ended the running phase; read from the events, so no extra column is needed.
+        var ids = await dbContext.ReviewRuns
+            .AsNoTracking()
+            .Where(storedRun => !dbContext.ReviewEvents.Any(storedEvent =>
+                storedEvent.RunId == storedRun.Id && _runEndingEventTypes.Contains(storedEvent.EventType)))
+            .Select(storedRun => storedRun.Id)
+            .ToListAsync(cancellationToken);
+
+        return ids.Select(id => new ReviewRunId(id)).ToList();
     }
 
     private async Task AdvanceVersionAsync(

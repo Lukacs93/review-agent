@@ -13,4 +13,7 @@ public interface IReviewRunRepository
     /// has appended events to the same run since it was loaded.
     /// </summary>
     Task SaveAsync(ReviewRun run, CancellationToken cancellationToken);
+
+    /// <summary>The IDs of the runs the agent has not finished or failed yet.</summary>
+    Task<IReadOnlyList<ReviewRunId>> FindRunningIdsAsync(CancellationToken cancellationToken);
 }
