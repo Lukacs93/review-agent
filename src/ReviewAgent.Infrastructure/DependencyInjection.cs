@@ -62,11 +62,15 @@ public static class DependencyInjection
     {
         ArgumentNullException.ThrowIfNull(services);
 
+        // The "PullRequests" section of the configuration, bound to PullRequestSourceOptions and checked against its
+        // attributes when the application starts, so a missing setting stops it right away, not at the first request.
         services.AddOptions<PullRequestSourceOptions>()
             .BindConfiguration(PullRequestSourceOptions.SectionName)
             .ValidateDataAnnotations()
             .ValidateOnStart();
 
+        // Singletons: they keep no state but the directory, and read or write the files on every call, so one
+        // instance can serve the whole application, from any thread.
         services.AddSingleton(serviceProvider =>
         {
             var options = serviceProvider.GetRequiredService<IOptions<PullRequestSourceOptions>>().Value;
@@ -82,6 +86,9 @@ public static class DependencyInjection
             .AddStandardResilienceHandler();
 
         // The rest of the application only sees IPullRequestSource; the configuration decides which one it gets.
+        // Transient, because the GitHub classes are typed HTTP clients, which AddHttpClient registers as transient:
+        // each gets a client from the factory, which renews the connection handlers from time to time. A singleton
+        // here would keep the first GitHub instance, and its old handler, for the application's whole life.
         services.AddTransient<IPullRequestSource>(serviceProvider =>
             serviceProvider.GetRequiredService<IOptions<PullRequestSourceOptions>>().Value.Source switch
             {
@@ -100,6 +107,7 @@ public static class DependencyInjection
     {
         ArgumentNullException.ThrowIfNull(services);
 
+        // The "Agent" section of the configuration, bound and checked at startup like the "PullRequests" section.
         services.AddOptions<AgentOptions>()
             .BindConfiguration(AgentOptions.SectionName)
             .ValidateDataAnnotations()
