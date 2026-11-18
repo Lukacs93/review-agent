@@ -22,11 +22,13 @@ public static class ReviewRunErrors
 
     // Decisions
     public const string DecideWhenNotFinished = "Comments can only be decided after the review has finished.";
-    public const string DecisionsLocked = "Decisions cannot change once publishing has started.";
+    public const string DecisionsLocked = "Decisions cannot change once publishing has been asked for.";
 
     // Publishing
     public const string PublishWhenNotFinished = "Only a finished review can be published.";
     public const string UndecidedComments = "Every comment needs a decision before publishing.";
+    public const string NotPublishing = "Publishing can only be recorded while the review is being published.";
+    public const string PublishingFailureReasonRequired = "Publishing failure reason is required.";
     public const string UnpublishedComments =
         "Every approved comment must be published before the review is completed.";
 

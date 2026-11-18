@@ -16,4 +16,7 @@ public interface IReviewRunRepository
 
     /// <summary>The IDs of the runs the agent has not finished or failed yet.</summary>
     Task<IReadOnlyList<ReviewRunId>> FindRunningIdsAsync(CancellationToken cancellationToken);
+
+    /// <summary>The IDs of the runs being published: asked for, and not yet succeeded or failed.</summary>
+    Task<IReadOnlyList<ReviewRunId>> FindPublishingIdsAsync(CancellationToken cancellationToken);
 }

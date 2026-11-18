@@ -44,4 +44,14 @@ internal sealed class InMemoryReviewRunRepository : IReviewRunRepository
 
         return Task.FromResult(runningIds);
     }
+
+    public Task<IReadOnlyList<ReviewRunId>> FindPublishingIdsAsync(CancellationToken cancellationToken)
+    {
+        IReadOnlyList<ReviewRunId> publishingIds = _eventsByRun
+            .Where(pair => ReviewRun.FromHistory(pair.Value).Status == ReviewStatus.Publishing)
+            .Select(pair => pair.Key)
+            .ToList();
+
+        return Task.FromResult(publishingIds);
+    }
 }
