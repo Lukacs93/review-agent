@@ -146,6 +146,33 @@ public sealed class EfReviewRunRepositoryTests : IDisposable
 
     public void Dispose() => _database.Dispose();
 
+    [Fact]
+    public async Task Only_runs_not_finished_or_failed_are_running()
+    {
+        var started = StartedRun();
+        var working = StartedRun();
+        working.RecordToolCall("get_diff", null, Now);
+        var finished = FinishedRunWithOneComment();
+        var failed = StartedRun();
+        failed.Fail("The model could not be reached.", Now);
+        foreach (var run in new[] { started, working, finished, failed })
+        {
+            await SaveAsync(run);
+        }
+
+        using var dbContext = _database.CreateDbContext();
+        var runningIds = await new EfReviewRunRepository(dbContext).FindRunningIdsAsync(CancellationToken.None);
+
+        ReviewRunId[] expected = [started.Id, working.Id];
+        Assert.Equal(expected.OrderBy(id => id.Value), runningIds.OrderBy(id => id.Value));
+    }
+
+    private static ReviewRun StartedRun() =>
+        ReviewRun.Start(
+            ReviewRunId.New(),
+            new PullRequestRef(RepositoryOwner, RepositoryName, PullRequestNumber),
+            Now);
+
     private static ReviewRun FinishedRunWithOneComment()
     {
         var run = ReviewRun.Start(

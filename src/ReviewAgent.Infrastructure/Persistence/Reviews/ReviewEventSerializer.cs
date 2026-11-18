@@ -37,9 +37,16 @@ internal static class ReviewEventSerializer
     {
         ArgumentNullException.ThrowIfNull(reviewEvent);
 
-        return _namesByType.TryGetValue(reviewEvent.GetType(), out var name)
+        return TypeNameOf(reviewEvent.GetType());
+    }
+
+    public static string TypeNameOf(Type eventType)
+    {
+        ArgumentNullException.ThrowIfNull(eventType);
+
+        return _namesByType.TryGetValue(eventType, out var name)
             ? name
-            : throw new InvalidOperationException(ReviewEventStoreErrors.UnregisteredEvent(reviewEvent.GetType()));
+            : throw new InvalidOperationException(ReviewEventStoreErrors.UnregisteredEvent(eventType));
     }
 
     public static string Serialize(ReviewEvent reviewEvent)

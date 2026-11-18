@@ -34,4 +34,14 @@ internal sealed class InMemoryReviewRunRepository : IReviewRunRepository
         run.ClearUncommittedEvents();
         return Task.CompletedTask;
     }
+
+    public Task<IReadOnlyList<ReviewRunId>> FindRunningIdsAsync(CancellationToken cancellationToken)
+    {
+        IReadOnlyList<ReviewRunId> runningIds = _eventsByRun
+            .Where(pair => !pair.Value.Any(reviewEvent => reviewEvent is ReviewFinished or ReviewFailed))
+            .Select(pair => pair.Key)
+            .ToList();
+
+        return Task.FromResult(runningIds);
+    }
 }

@@ -39,4 +39,5 @@ app.MapReviewEndpoints();
 app.MapPullRequestEndpoints();
 
 await app.Services.MigrateDatabaseAsync(app.Lifetime.ApplicationStopping);
+await app.Services.FailInterruptedReviewsAsync(app.Logger, app.Lifetime.ApplicationStopping);
 await app.RunAsync();
