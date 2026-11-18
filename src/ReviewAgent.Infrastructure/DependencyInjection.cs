@@ -5,6 +5,7 @@ using Microsoft.Extensions.Http.Resilience;
 using Microsoft.Extensions.Options;
 using ReviewAgent.Application.Reviews;
 using ReviewAgent.Application.Reviews.Agent;
+using ReviewAgent.Application.Reviews.Publishing;
 using ReviewAgent.Application.SourceControl;
 using ReviewAgent.Infrastructure.Agents;
 using ReviewAgent.Infrastructure.Agents.LanguageModel;
@@ -55,8 +56,8 @@ public static class DependencyInjection
     }
 
     /// <summary>
-    /// The pull request sources: saved to disk and GitHub. The configuration decides which one
-    /// <see cref="IPullRequestSource"/> resolves to.
+    /// The pull request sources and review publishers: saved to disk and GitHub. The configuration decides which
+    /// ones <see cref="IPullRequestSource"/> and <see cref="IReviewPublisher"/> resolve to.
     /// </summary>
     public static IServiceCollection AddSourceControl(this IServiceCollection services)
     {
@@ -76,6 +77,11 @@ public static class DependencyInjection
             var options = serviceProvider.GetRequiredService<IOptions<PullRequestSourceOptions>>().Value;
             return new SavedPullRequestSource(Path.GetFullPath(options.SavedDirectory, AppContext.BaseDirectory));
         });
+        services.AddSingleton(serviceProvider =>
+        {
+            var options = serviceProvider.GetRequiredService<IOptions<PullRequestSourceOptions>>().Value;
+            return new SavedReviewPublisher(Path.GetFullPath(options.SavedDirectory, AppContext.BaseDirectory));
+        });
 
         // The standard resilience handler retries transient failures (5xx, 408, 429) with backoff, honours
         // Retry-After, and adds timeouts and a circuit breaker.
@@ -84,6 +90,15 @@ public static class DependencyInjection
                     client,
                     serviceProvider.GetRequiredService<IOptions<PullRequestSourceOptions>>().Value.GitHub))
             .AddStandardResilienceHandler();
+
+        // The same client for publishing, except that a request that changes something is not retried: a review that
+        // timed out may still have been created. The next publishing checks the pull request for it first.
+        services.AddHttpClient<GitHubReviewPublisher>((serviceProvider, client) =>
+                GitHubPullRequestSource.ConfigureClient(
+                    client,
+                    serviceProvider.GetRequiredService<IOptions<PullRequestSourceOptions>>().Value.GitHub))
+            .AddStandardResilienceHandler()
+            .Configure(resilience => resilience.Retry.DisableForUnsafeHttpMethods());
 
         // The rest of the application only sees IPullRequestSource; the configuration decides which one it gets.
         // Transient, because the GitHub classes are typed HTTP clients, which AddHttpClient registers as transient:
@@ -94,6 +109,13 @@ public static class DependencyInjection
             {
                 PullRequestSourceKind.GitHub => serviceProvider.GetRequiredService<GitHubPullRequestSource>(),
                 _ => serviceProvider.GetRequiredService<SavedPullRequestSource>(),
+            });
+        // Transient for the same reason as IPullRequestSource.
+        services.AddTransient<IReviewPublisher>(serviceProvider =>
+            serviceProvider.GetRequiredService<IOptions<PullRequestSourceOptions>>().Value.Source switch
+            {
+                PullRequestSourceKind.GitHub => serviceProvider.GetRequiredService<GitHubReviewPublisher>(),
+                _ => serviceProvider.GetRequiredService<SavedReviewPublisher>(),
             });
 
         return services;

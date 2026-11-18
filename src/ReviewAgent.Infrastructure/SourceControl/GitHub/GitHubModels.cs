@@ -11,3 +11,6 @@ internal sealed record GitHubBranch(string Ref, string? Sha);
 
 /// <summary>One item of <c>GET /repos/{owner}/{repo}/pulls/{number}/files</c>.</summary>
 internal sealed record GitHubChangedFile(string FileName, string Status, string? Patch);
+
+/// <summary>One item of <c>GET /repos/{owner}/{repo}/pulls/{number}/reviews</c>.</summary>
+internal sealed record GitHubReview(string? Body);

@@ -3,6 +3,7 @@ using ReviewAgent.Application.Interfaces;
 using ReviewAgent.Application.Reviews.Commands.ApproveComment;
 using ReviewAgent.Application.Reviews.Commands.DiscardComment;
 using ReviewAgent.Application.Reviews.Commands.EditComment;
+using ReviewAgent.Application.Reviews.Commands.RequestPublishing;
 using ReviewAgent.Application.Reviews.Commands.StartReview;
 using ReviewAgent.Application.Reviews.Queries.GetReviewRun;
 
@@ -20,6 +21,7 @@ internal static class ReviewEndpoints
 
         reviews.MapPost(ReviewRoutes.StartReview, StartReviewAsync);
         reviews.MapGet(ReviewRoutes.GetReviewRun, GetReviewRunAsync).WithName(ReviewRoutes.GetReviewRunName);
+        reviews.MapPost(ReviewRoutes.RequestPublishing, RequestPublishingAsync);
 
         var comment = reviews.MapGroup(ReviewRoutes.Comment);
         comment.MapPost(ReviewRoutes.ApproveComment, ApproveCommentAsync);
@@ -54,6 +56,16 @@ internal static class ReviewEndpoints
         var details = await handler.HandleAsync(new GetReviewRunQuery(runId), cancellationToken);
 
         return details is null ? TypedResults.NotFound() : TypedResults.Ok(details);
+    }
+
+    // 202 Accepted: publishing runs in the background; the run shows when it is done, or why it failed.
+    private static async Task<AcceptedAtRoute> RequestPublishingAsync(
+        Guid runId,
+        ICommandHandler<RequestPublishingCommand> handler,
+        CancellationToken cancellationToken)
+    {
+        await handler.HandleAsync(new RequestPublishingCommand(runId), cancellationToken);
+        return TypedResults.AcceptedAtRoute(ReviewRoutes.GetReviewRunName, new { runId });
     }
 
     private static async Task<NoContent> ApproveCommentAsync(

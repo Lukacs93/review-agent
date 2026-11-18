@@ -11,6 +11,7 @@ internal static class ReviewRoutes
 
     public const string StartReview = "/";
     public const string GetReviewRun = "/{runId:guid}";
+    public const string RequestPublishing = "/{runId:guid}/publish";
 
     /// <summary>The group of the decisions on one comment.</summary>
     public const string Comment = "/{runId:guid}/comments/{commentId:guid}";

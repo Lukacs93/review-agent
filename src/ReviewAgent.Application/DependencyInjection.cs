@@ -7,8 +7,11 @@ using ReviewAgent.Application.Reviews.Commands.FailInterruptedReviews;
 using ReviewAgent.Application.Reviews.Commands.FailReview;
 using ReviewAgent.Application.Reviews.Commands.FinishReview;
 using ReviewAgent.Application.Reviews.Commands.ProposeComment;
+using ReviewAgent.Application.Reviews.Commands.PublishReview;
 using ReviewAgent.Application.Reviews.Commands.RecordToolCall;
 using ReviewAgent.Application.Reviews.Commands.RejectComment;
+using ReviewAgent.Application.Reviews.Commands.RequestPublishing;
+using ReviewAgent.Application.Reviews.Commands.ResumeInterruptedPublishing;
 using ReviewAgent.Application.Reviews.Commands.StartReview;
 using ReviewAgent.Application.Reviews.Queries.GetReviewRun;
 using ReviewAgent.Application.SourceControl;
@@ -29,6 +32,7 @@ public static class DependencyInjection
         services.AddScoped<ICommandHandler<ApproveCommentCommand>, ApproveCommentCommandHandler>();
         services.AddScoped<ICommandHandler<EditCommentCommand>, EditCommentCommandHandler>();
         services.AddScoped<ICommandHandler<DiscardCommentCommand>, DiscardCommentCommandHandler>();
+        services.AddScoped<ICommandHandler<RequestPublishingCommand>, RequestPublishingCommandHandler>();
 
         // The agent's steps.
         services.AddScoped<ICommandHandler<RecordToolCallCommand>, RecordToolCallCommandHandler>();
@@ -37,6 +41,12 @@ public static class DependencyInjection
         services.AddScoped<ICommandHandler<FinishReviewCommand>, FinishReviewCommandHandler>();
         services.AddScoped<ICommandHandler<FailReviewCommand>, FailReviewCommandHandler>();
         services.AddScoped<ICommandHandler<FailInterruptedReviewsCommand, int>, FailInterruptedReviewsCommandHandler>();
+
+        // The publishing worker's steps.
+        services.AddScoped<ICommandHandler<PublishReviewCommand>, PublishReviewCommandHandler>();
+        services.AddScoped<
+            ICommandHandler<ResumeInterruptedPublishingCommand, int>,
+            ResumeInterruptedPublishingCommandHandler>();
 
         services.AddScoped<IQueryHandler<GetReviewRunQuery, ReviewRunDetails?>, GetReviewRunQueryHandler>();
         services.AddScoped<IQueryHandler<GetPullRequestQuery, PullRequestSnapshot>, GetPullRequestQueryHandler>();
