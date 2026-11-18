@@ -69,6 +69,7 @@ internal sealed partial class ReviewAgentRunner(
         catch (Exception exception)
         {
             LogReviewFailed(_logger, runId, exception);
+            LogFullModelAnswer(runId, exception);
             failure = AgentErrors.Failed(ModelErrorDetails.Describe(exception));
         }
 
@@ -162,6 +163,7 @@ internal sealed partial class ReviewAgentRunner(
         catch (Exception exception) when (exception is not OperationCanceledException)
         {
             LogVerificationFailed(_logger, runId, exception);
+            LogFullModelAnswer(runId, exception);
             return ModelErrorDetails.Describe(exception);
         }
     }
@@ -170,6 +172,20 @@ internal sealed partial class ReviewAgentRunner(
     [
         .. tools.Select(tool => new RecordedToolFunction(tool, runId, commands.RecordToolCall, agentName)),
     ];
+
+    // The failure reason only has the API's error message; the whole answer is logged, so the details can be looked
+    // up here.
+    private void LogFullModelAnswer(Guid runId, Exception exception)
+    {
+        var answer = ModelErrorDetails.AnswerOf(exception);
+        if (answer is not null)
+        {
+            LogModelAnswer(_logger, runId, answer);
+        }
+    }
+
+    [LoggerMessage(Level = LogLevel.Warning, Message = "The model's API answered for run {RunId}: {Answer}")]
+    private static partial void LogModelAnswer(ILogger logger, Guid runId, string answer);
 
     [LoggerMessage(Level = LogLevel.Warning, Message = "The review of run {RunId} failed.")]
     private static partial void LogReviewFailed(ILogger logger, Guid runId, Exception exception);
