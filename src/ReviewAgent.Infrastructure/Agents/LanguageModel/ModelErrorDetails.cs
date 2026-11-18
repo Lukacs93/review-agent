@@ -1,32 +1,68 @@
 using System.ClientModel;
+using System.Text.Json;
 
 namespace ReviewAgent.Infrastructure.Agents.LanguageModel;
 
 /// <summary>
 /// Makes a failure reason useful. When the model's API rejects a request, the exception only says the status
-/// ("400 Bad Request"); the reason is in the response body, so it is added here.
+/// ("HTTP 400"); the API's own error message is in its answer, so it is added here.
 /// </summary>
 internal static class ModelErrorDetails
 {
-    private const int MaxBodyLength = 1000;
-
+    /// <summary>The exception's message, followed by the API's error message when its answer has one.</summary>
     public static string Describe(Exception exception)
     {
         ArgumentNullException.ThrowIfNull(exception);
 
-        if (exception is not ClientResultException clientError
-            || clientError.GetRawResponse()?.Content?.ToString() is not { Length: > 0 } body)
+        var answer = AnswerOf(exception);
+        var message = answer is null ? null : MessageOf(answer);
+        return message is null ? exception.Message : $"{exception.Message} {message}";
+    }
+
+    /// <summary>The whole answer of the model's API, for the log; <see langword="null"/> when there is none.</summary>
+    public static string? AnswerOf(Exception exception)
+    {
+        ArgumentNullException.ThrowIfNull(exception);
+
+        if (exception is not ClientResultException clientError)
         {
-            return exception.Message;
+            return null;
         }
 
-        // Marks that the text was cut off.
-        const string CutOffMark = "…";
+        var answer = clientError.GetRawResponse()?.Content?.ToString();
+        return string.IsNullOrEmpty(answer) ? null : answer;
+    }
 
-        var isTooLong = body.Length > MaxBodyLength;
-        var trimmed = isTooLong
-            ? body[..MaxBodyLength] + CutOffMark
-            : body;
-        return $"{exception.Message} {trimmed}";
+    /// <summary>
+    /// The <c>error.message</c> of an OpenAI-compatible error answer; an answer that is a list is read from its first
+    /// item. <see langword="null"/> when the answer is not such JSON, for example an HTML page from a proxy.
+    /// </summary>
+    internal static string? MessageOf(string answer)
+    {
+        ArgumentNullException.ThrowIfNull(answer);
+
+        try
+        {
+            using var document = JsonDocument.Parse(answer);
+            var root = document.RootElement;
+            var isList = root.ValueKind == JsonValueKind.Array && root.GetArrayLength() > 0;
+            var errorAnswer = isList ? root[0] : root;
+
+            if (errorAnswer.ValueKind == JsonValueKind.Object
+                && errorAnswer.TryGetProperty("error", out var error)
+                && error.ValueKind == JsonValueKind.Object
+                && error.TryGetProperty("message", out var message)
+                && message.ValueKind == JsonValueKind.String
+                && !string.IsNullOrWhiteSpace(message.GetString()))
+            {
+                return message.GetString();
+            }
+
+            return null;
+        }
+        catch (JsonException)
+        {
+            return null;
+        }
     }
 }

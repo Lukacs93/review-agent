@@ -7,6 +7,8 @@ var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddHttpContextAccessor();
 builder.Services.AddSourceControl();
 builder.Services.AddScoped<ReviewedPullRequest>();
+// The "ReviewTools" section of the configuration, bound to ReviewToolsOptions and checked against its attributes
+// when the server starts, so a missing setting stops it right away.
 builder.Services.AddOptions<ReviewToolsOptions>()
     .BindConfiguration(ReviewToolsOptions.SectionName)
     .ValidateDataAnnotations()

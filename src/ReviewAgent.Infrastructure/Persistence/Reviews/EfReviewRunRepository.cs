@@ -19,6 +19,16 @@ internal sealed class EfReviewRunRepository(ReviewAgentDbContext dbContext) : IR
         ReviewEventSerializer.TypeNameOf(typeof(ReviewFailed)),
     ];
 
+    private static readonly string _publishingRequestedType =
+        ReviewEventSerializer.TypeNameOf(typeof(PublishingRequested));
+
+    // Publishing ends when it succeeds or fails; after a failure it can be asked for again.
+    private static readonly string[] _publishingEndingEventTypes =
+    [
+        ReviewEventSerializer.TypeNameOf(typeof(ReviewPublished)),
+        ReviewEventSerializer.TypeNameOf(typeof(PublishingFailed)),
+    ];
+
     public async Task<ReviewRun?> FindAsync(ReviewRunId id, CancellationToken cancellationToken)
     {
         var storedEvents = await dbContext.ReviewEvents
@@ -80,6 +90,25 @@ internal sealed class EfReviewRunRepository(ReviewAgentDbContext dbContext) : IR
             .AsNoTracking()
             .Where(storedRun => !dbContext.ReviewEvents.Any(storedEvent =>
                 storedEvent.RunId == storedRun.Id && _runEndingEventTypes.Contains(storedEvent.EventType)))
+            .Select(storedRun => storedRun.Id)
+            .ToListAsync(cancellationToken);
+
+        return ids.Select(id => new ReviewRunId(id)).ToList();
+    }
+
+    public async Task<IReadOnlyList<ReviewRunId>> FindPublishingIdsAsync(CancellationToken cancellationToken)
+    {
+        // Runs with a publishing request that no later event ended. A new request is only accepted after the
+        // previous one ended, so at most one request per run can be open.
+        var ids = await dbContext.ReviewRuns
+            .AsNoTracking()
+            .Where(storedRun => dbContext.ReviewEvents.Any(requested =>
+                requested.RunId == storedRun.Id
+                && requested.EventType == _publishingRequestedType
+                && !dbContext.ReviewEvents.Any(ended =>
+                    ended.RunId == storedRun.Id
+                    && ended.Version > requested.Version
+                    && _publishingEndingEventTypes.Contains(ended.EventType))))
             .Select(storedRun => storedRun.Id)
             .ToListAsync(cancellationToken);
 

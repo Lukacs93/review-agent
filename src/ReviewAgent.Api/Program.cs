@@ -1,6 +1,7 @@
 using System.Text.Json.Serialization;
 using ReviewAgent.Api.Agent;
 using ReviewAgent.Api.Errors;
+using ReviewAgent.Api.Publishing;
 using ReviewAgent.Api.PullRequests;
 using ReviewAgent.Api.Reviews;
 using ReviewAgent.Application;
@@ -20,6 +21,7 @@ builder.Services.ConfigureHttpJsonOptions(options =>
 builder.Services.AddApplication();
 builder.Services.AddInfrastructure();
 builder.Services.AddReviewWorker();
+builder.Services.AddPublishingWorker();
 
 var app = builder.Build();
 
@@ -40,4 +42,5 @@ app.MapPullRequestEndpoints();
 
 await app.Services.MigrateDatabaseAsync(app.Lifetime.ApplicationStopping);
 await app.Services.FailInterruptedReviewsAsync(app.Logger, app.Lifetime.ApplicationStopping);
+await app.Services.ResumeInterruptedPublishingAsync(app.Logger, app.Lifetime.ApplicationStopping);
 await app.RunAsync();

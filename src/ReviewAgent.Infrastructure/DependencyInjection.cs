@@ -5,6 +5,7 @@ using Microsoft.Extensions.Http.Resilience;
 using Microsoft.Extensions.Options;
 using ReviewAgent.Application.Reviews;
 using ReviewAgent.Application.Reviews.Agent;
+using ReviewAgent.Application.Reviews.Publishing;
 using ReviewAgent.Application.SourceControl;
 using ReviewAgent.Infrastructure.Agents;
 using ReviewAgent.Infrastructure.Agents.LanguageModel;
@@ -55,22 +56,31 @@ public static class DependencyInjection
     }
 
     /// <summary>
-    /// The pull request sources: saved (offline) and GitHub. The configuration decides which one
-    /// <see cref="IPullRequestSource"/> resolves to.
+    /// The pull request sources and review publishers: saved to disk and GitHub. The configuration decides which
+    /// ones <see cref="IPullRequestSource"/> and <see cref="IReviewPublisher"/> resolve to.
     /// </summary>
     public static IServiceCollection AddSourceControl(this IServiceCollection services)
     {
         ArgumentNullException.ThrowIfNull(services);
 
+        // The "PullRequests" section of the configuration, bound to PullRequestSourceOptions and checked against its
+        // attributes when the application starts, so a missing setting stops it right away, not at the first request.
         services.AddOptions<PullRequestSourceOptions>()
             .BindConfiguration(PullRequestSourceOptions.SectionName)
             .ValidateDataAnnotations()
             .ValidateOnStart();
 
+        // Singletons: they keep no state but the directory, and read or write the files on every call, so one
+        // instance can serve the whole application, from any thread.
         services.AddSingleton(serviceProvider =>
         {
             var options = serviceProvider.GetRequiredService<IOptions<PullRequestSourceOptions>>().Value;
             return new SavedPullRequestSource(Path.GetFullPath(options.SavedDirectory, AppContext.BaseDirectory));
+        });
+        services.AddSingleton(serviceProvider =>
+        {
+            var options = serviceProvider.GetRequiredService<IOptions<PullRequestSourceOptions>>().Value;
+            return new SavedReviewPublisher(Path.GetFullPath(options.SavedDirectory, AppContext.BaseDirectory));
         });
 
         // The standard resilience handler retries transient failures (5xx, 408, 429) with backoff, honours
@@ -81,12 +91,31 @@ public static class DependencyInjection
                     serviceProvider.GetRequiredService<IOptions<PullRequestSourceOptions>>().Value.GitHub))
             .AddStandardResilienceHandler();
 
+        // The same client for publishing, except that a request that changes something is not retried: a review that
+        // timed out may still have been created. The next publishing checks the pull request for it first.
+        services.AddHttpClient<GitHubReviewPublisher>((serviceProvider, client) =>
+                GitHubPullRequestSource.ConfigureClient(
+                    client,
+                    serviceProvider.GetRequiredService<IOptions<PullRequestSourceOptions>>().Value.GitHub))
+            .AddStandardResilienceHandler()
+            .Configure(resilience => resilience.Retry.DisableForUnsafeHttpMethods());
+
         // The rest of the application only sees IPullRequestSource; the configuration decides which one it gets.
+        // Transient, because the GitHub classes are typed HTTP clients, which AddHttpClient registers as transient:
+        // each gets a client from the factory, which renews the connection handlers from time to time. A singleton
+        // here would keep the first GitHub instance, and its old handler, for the application's whole life.
         services.AddTransient<IPullRequestSource>(serviceProvider =>
             serviceProvider.GetRequiredService<IOptions<PullRequestSourceOptions>>().Value.Source switch
             {
                 PullRequestSourceKind.GitHub => serviceProvider.GetRequiredService<GitHubPullRequestSource>(),
                 _ => serviceProvider.GetRequiredService<SavedPullRequestSource>(),
+            });
+        // Transient for the same reason as IPullRequestSource.
+        services.AddTransient<IReviewPublisher>(serviceProvider =>
+            serviceProvider.GetRequiredService<IOptions<PullRequestSourceOptions>>().Value.Source switch
+            {
+                PullRequestSourceKind.GitHub => serviceProvider.GetRequiredService<GitHubReviewPublisher>(),
+                _ => serviceProvider.GetRequiredService<SavedReviewPublisher>(),
             });
 
         return services;
@@ -100,6 +129,7 @@ public static class DependencyInjection
     {
         ArgumentNullException.ThrowIfNull(services);
 
+        // The "Agent" section of the configuration, bound and checked at startup like the "PullRequests" section.
         services.AddOptions<AgentOptions>()
             .BindConfiguration(AgentOptions.SectionName)
             .ValidateDataAnnotations()

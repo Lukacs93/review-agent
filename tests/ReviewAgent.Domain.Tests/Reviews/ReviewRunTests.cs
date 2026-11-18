@@ -9,6 +9,8 @@ public sealed class ReviewRunTests
 {
     private const string Summary = "Two rule violations found.";
     private const string RejectionReason = "The query does not change state, so CQRS-01 is not broken.";
+    private const string CommitSha = "9fceb02d0ae598e95dc970b74767f19372d61af8";
+    private const string PublishingFailure = "GitHub answered 422: the line must be part of the diff.";
 
     private static DateTimeOffset Now => new(2026, 11, 14, 10, 0, 0, TimeSpan.Zero);
 
@@ -56,7 +58,7 @@ public sealed class ReviewRunTests
     public void Comment_cannot_be_proposed_after_the_review_finished()
     {
         var run = StartedRun();
-        run.Finish(Summary, Now);
+        run.Finish(Summary, CommitSha, Now);
 
         AssertFails(ReviewRunErrors.ProposeWhenNotRunning, () => ProposeComment(run));
     }
@@ -66,10 +68,24 @@ public sealed class ReviewRunTests
     {
         var run = StartedRun();
 
-        run.Finish(Summary, Now);
+        run.Finish(Summary, CommitSha, Now);
 
         Assert.Equal(ReviewStatus.AwaitingApproval, run.Status);
         Assert.Equal(Summary, run.Summary);
+        Assert.Equal(CommitSha, run.ReviewedCommitSha);
+    }
+
+    [Theory]
+    [InlineData(null)]
+    [InlineData(" ")]
+    public void Review_without_a_known_commit_can_finish(string? reviewedCommitSha)
+    {
+        var run = StartedRun();
+
+        run.Finish(Summary, reviewedCommitSha, Now);
+
+        Assert.Equal(ReviewStatus.AwaitingApproval, run.Status);
+        Assert.Null(run.ReviewedCommitSha);
     }
 
     [Fact]
@@ -87,7 +103,7 @@ public sealed class ReviewRunTests
     public void Finished_review_cannot_fail()
     {
         var run = StartedRun();
-        run.Finish(Summary, Now);
+        run.Finish(Summary, CommitSha, Now);
 
         AssertFails(ReviewRunErrors.FailWhenNotRunning, () => run.Fail("Too late.", Now));
     }
@@ -133,13 +149,43 @@ public sealed class ReviewRunTests
     }
 
     [Fact]
+    public void Requested_publishing_is_in_progress()
+    {
+        var (run, commentIds) = FinishedRunWithComments(1);
+        run.ApproveComment(commentIds[0], Now);
+
+        run.RequestPublishing(Now);
+
+        Assert.Equal(ReviewStatus.Publishing, run.Status);
+        Assert.IsType<PublishingRequested>(run.UncommittedEvents[^1]);
+    }
+
+    [Fact]
     public void Publishing_requires_a_decision_on_every_comment()
     {
         var (run, commentIds) = FinishedRunWithComments(2);
         run.ApproveComment(commentIds[0], Now);
 
-        AssertFails(ReviewRunErrors.UndecidedComments, () => run.MarkCommentPublished(commentIds[0], Now));
-        AssertFails(ReviewRunErrors.UndecidedComments, () => run.CompletePublishing(Now));
+        AssertFails(ReviewRunErrors.UndecidedComments, () => run.RequestPublishing(Now));
+    }
+
+    [Fact]
+    public void Running_review_cannot_be_published()
+    {
+        var run = StartedRun();
+
+        AssertFails(ReviewRunErrors.PublishWhenNotFinished, () => run.RequestPublishing(Now));
+    }
+
+    [Fact]
+    public void Publishing_cannot_be_recorded_before_it_is_requested()
+    {
+        var (run, commentIds) = FinishedRunWithComments(1);
+        run.ApproveComment(commentIds[0], Now);
+
+        AssertFails(ReviewRunErrors.NotPublishing, () => run.MarkCommentPublished(commentIds[0], Now));
+        AssertFails(ReviewRunErrors.NotPublishing, () => run.CompletePublishing(Now));
+        AssertFails(ReviewRunErrors.NotPublishing, () => run.FailPublishing(PublishingFailure, Now));
     }
 
     [Fact]
@@ -148,6 +194,7 @@ public sealed class ReviewRunTests
         var (run, commentIds) = FinishedRunWithComments(2);
         run.ApproveComment(commentIds[0], Now);
         run.DiscardComment(commentIds[1], Now);
+        run.RequestPublishing(Now);
 
         Assert.Equal(commentIds[0], Assert.Single(run.CommentsToPublish).Id);
         AssertFails(
@@ -160,6 +207,7 @@ public sealed class ReviewRunTests
     {
         var (run, commentIds) = FinishedRunWithComments(1);
         run.ApproveComment(commentIds[0], Now);
+        run.RequestPublishing(Now);
         run.ClearUncommittedEvents();
 
         run.MarkCommentPublished(commentIds[0], Now);
@@ -169,13 +217,61 @@ public sealed class ReviewRunTests
     }
 
     [Fact]
-    public void Decisions_cannot_change_once_publishing_has_started()
+    public void Decisions_cannot_change_once_publishing_is_requested()
     {
         var (run, commentIds) = FinishedRunWithComments(1);
         run.ApproveComment(commentIds[0], Now);
-        run.MarkCommentPublished(commentIds[0], Now);
+        run.RequestPublishing(Now);
 
         AssertFails(ReviewRunErrors.DecisionsLocked, () => run.DiscardComment(commentIds[0], Now));
+    }
+
+    [Fact]
+    public void Failed_publishing_waits_for_the_developer_with_the_reason()
+    {
+        var (run, commentIds) = FinishedRunWithComments(1);
+        run.ApproveComment(commentIds[0], Now);
+        run.RequestPublishing(Now);
+
+        run.FailPublishing(PublishingFailure, Now);
+
+        Assert.Equal(ReviewStatus.AwaitingApproval, run.Status);
+        Assert.Equal(PublishingFailure, run.PublishingFailureReason);
+        Assert.False(Assert.Single(run.Comments).IsPublished);
+    }
+
+    [Fact]
+    public void Decisions_stay_locked_after_a_failed_publishing()
+    {
+        var (run, commentIds) = FinishedRunWithComments(1);
+        run.ApproveComment(commentIds[0], Now);
+        run.RequestPublishing(Now);
+        run.FailPublishing(PublishingFailure, Now);
+
+        AssertFails(ReviewRunErrors.DecisionsLocked, () => run.DiscardComment(commentIds[0], Now));
+    }
+
+    [Fact]
+    public void Publishing_can_be_requested_again_after_it_failed()
+    {
+        var (run, commentIds) = FinishedRunWithComments(1);
+        run.ApproveComment(commentIds[0], Now);
+        run.RequestPublishing(Now);
+        run.FailPublishing(PublishingFailure, Now);
+
+        run.RequestPublishing(Now);
+
+        Assert.Equal(ReviewStatus.Publishing, run.Status);
+        Assert.Null(run.PublishingFailureReason);
+    }
+
+    [Fact]
+    public void Publishing_failure_needs_a_reason()
+    {
+        var (run, _) = FinishedRunWithComments(0);
+        run.RequestPublishing(Now);
+
+        AssertFails(ReviewRunErrors.PublishingFailureReasonRequired, () => run.FailPublishing(" ", Now));
     }
 
     [Fact]
@@ -184,6 +280,7 @@ public sealed class ReviewRunTests
         var (run, commentIds) = FinishedRunWithComments(2);
         run.ApproveComment(commentIds[0], Now);
         run.EditComment(commentIds[1], "Rename Basket to Cart.", Now);
+        run.RequestPublishing(Now);
 
         run.MarkCommentPublished(commentIds[0], Now);
         AssertFails(ReviewRunErrors.UnpublishedComments, () => run.CompletePublishing(Now));
@@ -198,7 +295,8 @@ public sealed class ReviewRunTests
     public void Review_without_comments_can_be_published()
     {
         var run = StartedRun();
-        run.Finish("No rule violations found.", Now);
+        run.Finish("No rule violations found.", CommitSha, Now);
+        run.RequestPublishing(Now);
 
         run.CompletePublishing(Now);
 
@@ -256,7 +354,7 @@ public sealed class ReviewRunTests
         var run = StartedRun();
         var rejected = ProposeComment(run);
         run.RejectComment(rejected, RejectionReason, Now);
-        run.Finish(Summary, Now);
+        run.Finish(Summary, CommitSha, Now);
 
         AssertFails(
             ReviewRunErrors.RejectedCommentCannotBeDecided(rejected),
@@ -270,8 +368,9 @@ public sealed class ReviewRunTests
         var rejected = ProposeComment(run);
         var kept = ProposeComment(run);
         run.RejectComment(rejected, RejectionReason, Now);
-        run.Finish(Summary, Now);
+        run.Finish(Summary, CommitSha, Now);
         run.ApproveComment(kept, Now);
+        run.RequestPublishing(Now);
 
         run.MarkCommentPublished(kept, Now);
         run.CompletePublishing(Now);
@@ -311,6 +410,22 @@ public sealed class ReviewRunTests
     }
 
     [Fact]
+    public void Publishing_state_is_rebuilt_from_the_history()
+    {
+        var (original, commentIds) = FinishedRunWithComments(1);
+        original.ApproveComment(commentIds[0], Now);
+        original.RequestPublishing(Now);
+        original.FailPublishing(PublishingFailure, Now);
+
+        var rebuilt = ReviewRun.FromHistory(original.UncommittedEvents);
+
+        Assert.Equal(ReviewStatus.AwaitingApproval, rebuilt.Status);
+        Assert.Equal(PublishingFailure, rebuilt.PublishingFailureReason);
+        Assert.Equal(CommitSha, rebuilt.ReviewedCommitSha);
+        AssertFails(ReviewRunErrors.DecisionsLocked, () => rebuilt.DiscardComment(commentIds[0], Now));
+    }
+
+    [Fact]
     public void History_must_start_with_ReviewStarted()
     {
         var history = new ReviewEvent[] { new ToolCalled(ReviewRunId.New(), Now, "get_diff", "") };
@@ -346,7 +461,7 @@ public sealed class ReviewRunTests
         var run = StartedRun();
         run.RecordToolCall("get_diff", "src/Orders.Api/Controllers/OrdersController.cs", Now);
         var commentIds = Enumerable.Range(0, count).Select(_ => ProposeComment(run)).ToList();
-        run.Finish(Summary, Now);
+        run.Finish(Summary, CommitSha, Now);
         return (run, commentIds);
     }
 }

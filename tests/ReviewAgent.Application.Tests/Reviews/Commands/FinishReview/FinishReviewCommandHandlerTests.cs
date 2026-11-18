@@ -15,11 +15,14 @@ public sealed class FinishReviewCommandHandlerTests
     {
         var runId = await TestReviewRuns.SaveRunningRunAsync(_repository);
 
-        await Handler.HandleAsync(new FinishReviewCommand(runId, TestReviewRuns.Summary), CancellationToken.None);
+        await Handler.HandleAsync(
+            new FinishReviewCommand(runId, TestReviewRuns.Summary, TestReviewRuns.CommitSha),
+            CancellationToken.None);
 
         var run = await _repository.FindAsync(new ReviewRunId(runId), CancellationToken.None);
         Assert.NotNull(run);
         Assert.Equal(ReviewStatus.AwaitingApproval, run.Status);
         Assert.Equal(TestReviewRuns.Summary, run.Summary);
+        Assert.Equal(TestReviewRuns.CommitSha, run.ReviewedCommitSha);
     }
 }

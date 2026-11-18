@@ -12,6 +12,7 @@ public sealed class ReviewRun
 {
     private readonly List<ReviewComment> _comments = [];
     private readonly List<ReviewEvent> _uncommittedEvents = [];
+    private bool _publishingRequested;
 
     private ReviewRun()
     {
@@ -30,6 +31,15 @@ public sealed class ReviewRun
     public string? Summary { get; private set; }
 
     public string? FailureReason { get; private set; }
+
+    /// <summary>
+    /// The pull request's latest commit when the agent read it; <see langword="null"/> until the review has finished,
+    /// or when the source does not tell it.
+    /// </summary>
+    public string? ReviewedCommitSha { get; private set; }
+
+    /// <summary>Why the last publishing failed; <see langword="null"/> if it has not failed.</summary>
+    public string? PublishingFailureReason { get; private set; }
 
     /// <summary>The number of events applied so far; used to detect concurrent changes when saving.</summary>
     public int Version { get; private set; }
@@ -115,12 +125,13 @@ public sealed class ReviewRun
         Raise(new CommentRejected(Id, now, commentId, reason.Trim()));
     }
 
-    public void Finish(string summary, DateTimeOffset now)
+    public void Finish(string summary, string? reviewedCommitSha, DateTimeOffset now)
     {
         EnsureStatus(ReviewStatus.Running, ReviewRunErrors.FinishWhenNotRunning);
         EnsureNotBlank(summary, ReviewRunErrors.SummaryRequired);
 
-        Raise(new ReviewFinished(Id, now, summary.Trim()));
+        var commitSha = string.IsNullOrWhiteSpace(reviewedCommitSha) ? null : reviewedCommitSha.Trim();
+        Raise(new ReviewFinished(Id, now, summary.Trim(), commitSha));
     }
 
     public void Fail(string reason, DateTimeOffset now)
@@ -154,12 +165,36 @@ public sealed class ReviewRun
     }
 
     /// <summary>
-    /// Records that one approved comment has been published. Calling it again for the same comment does nothing,
-    /// so a publish that is retried after a failure never posts a comment twice.
+    /// A developer asks for the approved comments to be published. From here on the decisions cannot change, so
+    /// what is published is what was approved, even if publishing has to be asked for again after a failure.
+    /// </summary>
+    public void RequestPublishing(DateTimeOffset now)
+    {
+        EnsureStatus(ReviewStatus.AwaitingApproval, ReviewRunErrors.PublishWhenNotFinished);
+
+        if (_comments.Any(comment => !comment.IsDecided))
+        {
+            throw new DomainException(ReviewRunErrors.UndecidedComments);
+        }
+
+        Raise(new PublishingRequested(Id, now));
+    }
+
+    /// <summary>Publishing failed; the run waits for the developer again, with the reason.</summary>
+    public void FailPublishing(string reason, DateTimeOffset now)
+    {
+        EnsureStatus(ReviewStatus.Publishing, ReviewRunErrors.NotPublishing);
+        EnsureNotBlank(reason, ReviewRunErrors.PublishingFailureReasonRequired);
+
+        Raise(new PublishingFailed(Id, now, reason.Trim()));
+    }
+
+    /// <summary>
+    /// Records that one approved comment has been published. Calling it again for the same comment does nothing.
     /// </summary>
     public void MarkCommentPublished(CommentId commentId, DateTimeOffset now)
     {
-        EnsureReadyToPublish();
+        EnsureStatus(ReviewStatus.Publishing, ReviewRunErrors.NotPublishing);
 
         var comment = FindComment(commentId);
         if (!comment.ShouldBePublished)
@@ -178,7 +213,7 @@ public sealed class ReviewRun
     /// <summary>Completes publishing once every approved comment has been published.</summary>
     public void CompletePublishing(DateTimeOffset now)
     {
-        EnsureReadyToPublish();
+        EnsureStatus(ReviewStatus.Publishing, ReviewRunErrors.NotPublishing);
 
         if (CommentsToPublish.Count > 0)
         {
@@ -234,6 +269,7 @@ public sealed class ReviewRun
 
             case ReviewFinished finished:
                 Summary = finished.Summary;
+                ReviewedCommitSha = finished.ReviewedCommitSha;
                 Status = ReviewStatus.AwaitingApproval;
                 break;
 
@@ -254,6 +290,17 @@ public sealed class ReviewRun
                 FindComment(discarded.CommentId).Discard();
                 break;
 
+            case PublishingRequested:
+                _publishingRequested = true;
+                PublishingFailureReason = null;
+                Status = ReviewStatus.Publishing;
+                break;
+
+            case PublishingFailed publishingFailed:
+                PublishingFailureReason = publishingFailed.Reason;
+                Status = ReviewStatus.AwaitingApproval;
+                break;
+
             case CommentPublished published:
                 FindComment(published.CommentId).MarkPublished();
                 break;
@@ -271,26 +318,18 @@ public sealed class ReviewRun
 
     private void EnsureCanDecide(CommentId commentId)
     {
+        // Checked before the status: after a failed publishing the status is AwaitingApproval again, but the
+        // decisions stay locked.
+        if (_publishingRequested)
+        {
+            throw new DomainException(ReviewRunErrors.DecisionsLocked);
+        }
+
         EnsureStatus(ReviewStatus.AwaitingApproval, ReviewRunErrors.DecideWhenNotFinished);
 
         if (FindComment(commentId).IsRejected)
         {
             throw new DomainException(ReviewRunErrors.RejectedCommentCannotBeDecided(commentId));
-        }
-
-        if (_comments.Any(comment => comment.IsPublished))
-        {
-            throw new DomainException(ReviewRunErrors.DecisionsLocked);
-        }
-    }
-
-    private void EnsureReadyToPublish()
-    {
-        EnsureStatus(ReviewStatus.AwaitingApproval, ReviewRunErrors.PublishWhenNotFinished);
-
-        if (_comments.Any(comment => !comment.IsDecided))
-        {
-            throw new DomainException(ReviewRunErrors.UndecidedComments);
         }
     }
 

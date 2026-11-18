@@ -16,6 +16,7 @@ public sealed class EfReviewRunRepositoryTests : IDisposable
     private const int Line = 12;
     private const string CommentBody = "Use an application handler instead of the DbContext.";
     private const string Summary = "One architecture issue.";
+    private const string CommitSha = "9fceb02d0ae598e95dc970b74767f19372d61af8";
 
     private readonly SqliteTestDatabase _database = new();
 
@@ -167,6 +168,42 @@ public sealed class EfReviewRunRepositoryTests : IDisposable
         Assert.Equal(expected.OrderBy(id => id.Value), runningIds.OrderBy(id => id.Value));
     }
 
+    [Fact]
+    public async Task Only_runs_whose_publishing_has_not_ended_are_publishing()
+    {
+        var awaitingApproval = ApprovedRun();
+        var publishing = ApprovedRun();
+        publishing.RequestPublishing(Now);
+        var publishingFailed = ApprovedRun();
+        publishingFailed.RequestPublishing(Now);
+        publishingFailed.FailPublishing("GitHub answered 502.", Now);
+        var requestedAgain = ApprovedRun();
+        requestedAgain.RequestPublishing(Now);
+        requestedAgain.FailPublishing("GitHub answered 502.", Now);
+        requestedAgain.RequestPublishing(Now);
+        var published = ApprovedRun();
+        published.RequestPublishing(Now);
+        published.MarkCommentPublished(published.Comments[0].Id, Now);
+        published.CompletePublishing(Now);
+        foreach (var run in new[] { awaitingApproval, publishing, publishingFailed, requestedAgain, published })
+        {
+            await SaveAsync(run);
+        }
+
+        using var dbContext = _database.CreateDbContext();
+        var publishingIds = await new EfReviewRunRepository(dbContext).FindPublishingIdsAsync(CancellationToken.None);
+
+        ReviewRunId[] expected = [publishing.Id, requestedAgain.Id];
+        Assert.Equal(expected.OrderBy(id => id.Value), publishingIds.OrderBy(id => id.Value));
+    }
+
+    private static ReviewRun ApprovedRun()
+    {
+        var run = FinishedRunWithOneComment();
+        run.ApproveComment(run.Comments[0].Id, Now);
+        return run;
+    }
+
     private static ReviewRun StartedRun() =>
         ReviewRun.Start(
             ReviewRunId.New(),
@@ -187,7 +224,7 @@ public sealed class EfReviewRunRepositoryTests : IDisposable
             CommentBody,
             suggestedFix: null,
             Now);
-        run.Finish(Summary, Now);
+        run.Finish(Summary, CommitSha, Now);
         return run;
     }
 

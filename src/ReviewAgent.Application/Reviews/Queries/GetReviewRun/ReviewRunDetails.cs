@@ -28,6 +28,9 @@ public sealed record ReviewRunDetails
     /// <summary>Why the run stopped; <see langword="null"/> unless it failed.</summary>
     public string? FailureReason { get; init; }
 
+    /// <summary>Why the last publishing failed; <see langword="null"/> unless it failed.</summary>
+    public string? PublishingFailureReason { get; init; }
+
     public required IReadOnlyList<ReviewCommentDetails> Comments { get; init; }
 
     public static ReviewRunDetails From(ReviewRun run)
@@ -45,6 +48,7 @@ public sealed record ReviewRunDetails
             ToolCallCount = run.ToolCallCount,
             Summary = run.Summary,
             FailureReason = run.FailureReason,
+            PublishingFailureReason = run.PublishingFailureReason,
             Comments = run.Comments.Select(ReviewCommentDetails.From).ToList(),
         };
     }

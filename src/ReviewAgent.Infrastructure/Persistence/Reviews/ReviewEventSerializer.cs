@@ -21,6 +21,8 @@ internal static class ReviewEventSerializer
         ["CommentApproved"] = typeof(CommentApproved),
         ["CommentEdited"] = typeof(CommentEdited),
         ["CommentDiscarded"] = typeof(CommentDiscarded),
+        ["PublishingRequested"] = typeof(PublishingRequested),
+        ["PublishingFailed"] = typeof(PublishingFailed),
         ["CommentPublished"] = typeof(CommentPublished),
         ["ReviewPublished"] = typeof(ReviewPublished),
     };

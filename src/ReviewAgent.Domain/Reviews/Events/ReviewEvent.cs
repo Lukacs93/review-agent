@@ -29,8 +29,16 @@ public sealed record CommentProposed(
 public sealed record CommentRejected(ReviewRunId RunId, DateTimeOffset OccurredAt, CommentId CommentId, string Reason)
     : ReviewEvent(RunId, OccurredAt);
 
-/// <summary>The agent finished the review.</summary>
-public sealed record ReviewFinished(ReviewRunId RunId, DateTimeOffset OccurredAt, string Summary)
+/// <summary>
+/// The agent finished the review. <paramref name="ReviewedCommitSha"/> is the pull request's latest commit when the
+/// agent read it, so the comments can be published on the code they were written for; <see langword="null"/> when
+/// the source does not tell it.
+/// </summary>
+public sealed record ReviewFinished(
+    ReviewRunId RunId,
+    DateTimeOffset OccurredAt,
+    string Summary,
+    string? ReviewedCommitSha)
     : ReviewEvent(RunId, OccurredAt);
 
 /// <summary>The run stopped with an error.</summary>
@@ -49,7 +57,15 @@ public sealed record CommentEdited(ReviewRunId RunId, DateTimeOffset OccurredAt,
 public sealed record CommentDiscarded(ReviewRunId RunId, DateTimeOffset OccurredAt, CommentId CommentId)
     : ReviewEvent(RunId, OccurredAt);
 
-/// <summary>An approved comment was published. Recorded per comment so a retried publish skips it.</summary>
+/// <summary>A developer asked for the approved comments to be published; publishing runs in the background.</summary>
+public sealed record PublishingRequested(ReviewRunId RunId, DateTimeOffset OccurredAt)
+    : ReviewEvent(RunId, OccurredAt);
+
+/// <summary>Publishing failed; the run waits for the developer again, who can ask for it once more.</summary>
+public sealed record PublishingFailed(ReviewRunId RunId, DateTimeOffset OccurredAt, string Reason)
+    : ReviewEvent(RunId, OccurredAt);
+
+/// <summary>An approved comment was published.</summary>
 public sealed record CommentPublished(ReviewRunId RunId, DateTimeOffset OccurredAt, CommentId CommentId)
     : ReviewEvent(RunId, OccurredAt);
 

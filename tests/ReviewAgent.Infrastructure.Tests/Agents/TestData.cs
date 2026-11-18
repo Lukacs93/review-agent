@@ -6,6 +6,8 @@ namespace ReviewAgent.Infrastructure.Tests.Agents;
 /// <summary>A pull request and team rules for the agent tests.</summary>
 internal static class TestData
 {
+    public const string CommitSha = "9fceb02d0ae598e95dc970b74767f19372d61af8";
+
     public const string RulesMarkdown =
         """
         # Team rules
@@ -29,5 +31,6 @@ internal static class TestData
             "Adds a discount endpoint.",
             "main",
             "feature/discounts",
-            [new ChangedFile(filePath, FileChangeStatus.Modified, patch)]);
+            [new ChangedFile(filePath, FileChangeStatus.Modified, patch)],
+            CommitSha);
 }

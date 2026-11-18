@@ -12,7 +12,8 @@ namespace ReviewAgent.Integration.Tests;
 
 /// <summary>
 /// Runs the real API in memory against its own SQLite database file, which is migrated at startup like in
-/// production and deleted when the tests finish. Started reviews are not queued for the agent.
+/// production and deleted when the tests finish. Started reviews are not queued for the agent, and runs are not
+/// queued for publishing.
 /// </summary>
 public sealed class ReviewAgentApiFactory : WebApplicationFactory<Program>
 {
@@ -32,6 +33,8 @@ public sealed class ReviewAgentApiFactory : WebApplicationFactory<Program>
         {
             services.RemoveAll<IReviewScheduler>();
             services.AddSingleton<IReviewScheduler, NoReviewScheduler>();
+            services.RemoveAll<IPublishingScheduler>();
+            services.AddSingleton<IPublishingScheduler, NoPublishingScheduler>();
         });
     }
 

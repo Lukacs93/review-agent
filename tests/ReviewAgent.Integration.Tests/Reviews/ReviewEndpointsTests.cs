@@ -24,6 +24,7 @@ public sealed class ReviewEndpointsTests(ReviewAgentApiFactory factory) : IClass
     private const string CommentBody = "Use an application handler instead of the DbContext.";
     private const string EditedBody = "Move this query to an application handler.";
     private const string Summary = "One architecture issue.";
+    private const string CommitSha = "9fceb02d0ae598e95dc970b74767f19372d61af8";
 
     // The API sends enums as text, so the tests read them the same way.
     private static readonly JsonSerializerOptions _jsonOptions = new(JsonSerializerDefaults.Web)
@@ -150,8 +151,42 @@ public sealed class ReviewEndpointsTests(ReviewAgentApiFactory factory) : IClass
             ReviewRunErrors.DecideWhenNotFinished);
     }
 
+    [Fact]
+    public async Task Requested_publishing_is_accepted()
+    {
+        var (runId, commentId) = await SaveFinishedRunWithOneCommentAsync();
+        using var client = factory.CreateClient();
+        using var approved = await client.PostAsync(CommentUri(runId, commentId, "approve"), content: null);
+        Assert.Equal(HttpStatusCode.NoContent, approved.StatusCode);
+
+        using var response = await client.PostAsync(PublishUri(runId), content: null);
+
+        Assert.Equal(HttpStatusCode.Accepted, response.StatusCode);
+        Assert.NotNull(response.Headers.Location);
+        var details = await client.GetFromJsonAsync<ReviewRunDetails>(response.Headers.Location, _jsonOptions);
+        Assert.NotNull(details);
+        Assert.Equal(ReviewStatus.Publishing, details.Status);
+    }
+
+    [Fact]
+    public async Task Publishing_with_undecided_comments_returns_bad_request()
+    {
+        var (runId, _) = await SaveFinishedRunWithOneCommentAsync();
+        using var client = factory.CreateClient();
+
+        using var response = await client.PostAsync(PublishUri(runId), content: null);
+
+        await ProblemDetailsAssert.HasProblemAsync(
+            response,
+            HttpStatusCode.BadRequest,
+            ReviewRunErrors.UndecidedComments);
+    }
+
     private static Uri RunUri(Guid runId) =>
         new(string.Create(CultureInfo.InvariantCulture, $"/api/reviews/{runId}"), UriKind.Relative);
+
+    private static Uri PublishUri(Guid runId) =>
+        new(string.Create(CultureInfo.InvariantCulture, $"/api/reviews/{runId}/publish"), UriKind.Relative);
 
     private static Uri CommentUri(Guid runId, Guid commentId, string action) =>
         new(
@@ -189,7 +224,7 @@ public sealed class ReviewEndpointsTests(ReviewAgentApiFactory factory) : IClass
             CommentBody,
             suggestedFix: null,
             now);
-        run.Finish(Summary, now);
+        run.Finish(Summary, CommitSha, now);
 
         await repository.SaveAsync(run, CancellationToken.None);
         return (run.Id.Value, commentId.Value);
