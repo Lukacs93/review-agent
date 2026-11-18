@@ -29,16 +29,6 @@ public static class DiffLines
     private const char UnchangedLineMarker = ' ';
 
     /// <summary>
-    /// The line numbers in the new file of the added and unchanged lines the diff shows. Throws
-    /// <see cref="FormatException"/> when the diff has content but no block header.
-    /// </summary>
-    public static IReadOnlySet<int> InNewFile(string patch) =>
-        Number(patch)
-            .Select(diffLine => diffLine.NewFileLine)
-            .OfType<int>() // only the lines that have a number in the new file
-            .ToHashSet();
-
-    /// <summary>
     /// Every line of the diff, in order, with its line number in the new file: added and unchanged lines have one;
     /// block headers, removed lines and notes have none. Throws <see cref="FormatException"/> when the diff has
     /// content but no block header.
