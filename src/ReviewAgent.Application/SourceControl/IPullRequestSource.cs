@@ -3,8 +3,8 @@ using ReviewAgent.Domain.Reviews;
 namespace ReviewAgent.Application.SourceControl;
 
 /// <summary>
-/// Where the reviewed pull request comes from: a saved copy (offline) or a hosting service such as GitHub.
-/// Read-only: nothing here can change the repository.
+/// Reads the pull request under review, from the source the configuration chooses: a copy saved to disk or a
+/// hosting service such as GitHub. Read-only: nothing here can change the repository.
 /// </summary>
 public interface IPullRequestSource
 {

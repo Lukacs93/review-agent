@@ -12,7 +12,9 @@ internal sealed class PullRequestSourceOptions
 {
     public const string SectionName = "PullRequests";
 
-    /// <summary>Which source the application uses. The saved pull requests by default, so it runs offline.</summary>
+    /// <summary>
+    /// Which source the application uses. The saved pull requests by default, so it runs without a GitHub account.
+    /// </summary>
     public PullRequestSourceKind Source { get; init; } = PullRequestSourceKind.Saved;
 
     /// <summary>

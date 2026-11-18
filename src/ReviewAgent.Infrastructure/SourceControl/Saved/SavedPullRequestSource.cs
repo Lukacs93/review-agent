@@ -9,7 +9,7 @@ using ReviewAgent.Infrastructure.SourceControl.Saved.Errors;
 namespace ReviewAgent.Infrastructure.SourceControl.Saved;
 
 /// <summary>
-/// Reads pull requests saved to disk, so the agent can run offline and every run sees the same input.
+/// Reads pull requests saved to disk, so the agent can run without GitHub and every run sees the same input.
 /// Layout under the root directory: <c>{owner}/{repository}/{number}/</c> holds <c>pull-request.json</c>
 /// (title, description, changed files with their diffs) and <c>repository/</c>, the files as they are in the
 /// pull request.

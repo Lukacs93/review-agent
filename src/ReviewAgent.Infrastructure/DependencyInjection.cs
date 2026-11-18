@@ -55,7 +55,7 @@ public static class DependencyInjection
     }
 
     /// <summary>
-    /// The pull request sources: saved (offline) and GitHub. The configuration decides which one
+    /// The pull request sources: saved to disk and GitHub. The configuration decides which one
     /// <see cref="IPullRequestSource"/> resolves to.
     /// </summary>
     public static IServiceCollection AddSourceControl(this IServiceCollection services)
