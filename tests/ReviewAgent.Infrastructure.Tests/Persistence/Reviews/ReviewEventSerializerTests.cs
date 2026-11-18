@@ -89,6 +89,7 @@ public sealed class ReviewEventSerializerTests
             "Use an application handler instead of the DbContext.",
             null),
         new CommentRejected(RunId, Now, CommentId, "The query does not change state."),
+        new VerificationFinished(RunId, Now, "Kept 1 comment and rejected 0."),
         new ReviewFinished(RunId, Now, "One architecture issue.", "9fceb02d0ae598e95dc970b74767f19372d61af8"),
         new ReviewFailed(RunId, Now, "The model did not answer."),
         new CommentApproved(RunId, Now, CommentId),
