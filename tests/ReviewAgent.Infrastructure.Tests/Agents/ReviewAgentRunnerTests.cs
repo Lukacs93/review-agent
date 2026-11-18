@@ -50,6 +50,7 @@ public sealed class ReviewAgentRunnerTests : IDisposable
         Assert.Equal(ReviewStatus.AwaitingApproval, run.Status);
         Assert.Equal(Summary, run.Summary);
         Assert.Equal(2, run.ToolCallCount);
+        Assert.Equal(TestData.CommitSha, run.ReviewedCommitSha);
         var comment = Assert.Single(run.Comments);
         Assert.Equal(new CodeLocation(FilePath, 11), comment.Location);
         Assert.Equal(new RuleId("ARCH-01"), comment.Rule);

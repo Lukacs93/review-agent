@@ -48,6 +48,7 @@ public sealed class SavedPullRequestSourceTests : IDisposable
         Assert.Equal("Adds a discount endpoint.", snapshot.Description);
         Assert.Equal("main", snapshot.BaseBranch);
         Assert.Equal("feature/discounts", snapshot.HeadBranch);
+        Assert.Null(snapshot.HeadCommitSha);
         var file = Assert.Single(snapshot.Files);
         Assert.Equal(ChangedFilePath, file.Path);
         Assert.Equal(FileChangeStatus.Modified, file.Status);

@@ -19,7 +19,12 @@ public sealed class GitHubPullRequestSourceTests : IDisposable
     private const string OrderContentPath = "/repos/test/demo/contents/src/Order.cs?ref=refs/pull/1/head";
 
     private const string PullRequestJson = """
-        { "title": "Add discounts", "body": null, "base": { "ref": "main" }, "head": { "ref": "feature/discounts" } }
+        {
+          "title": "Add discounts",
+          "body": null,
+          "base": { "ref": "main", "sha": "0d1e2f3a4b5c6d7e8f9a0b1c2d3e4f5a6b7c8d9e" },
+          "head": { "ref": "feature/discounts", "sha": "9fceb02d0ae598e95dc970b74767f19372d61af8" }
+        }
         """;
 
     private const string FilesJson = """
@@ -56,6 +61,7 @@ public sealed class GitHubPullRequestSourceTests : IDisposable
         Assert.Equal(string.Empty, snapshot.Description);
         Assert.Equal("main", snapshot.BaseBranch);
         Assert.Equal("feature/discounts", snapshot.HeadBranch);
+        Assert.Equal("9fceb02d0ae598e95dc970b74767f19372d61af8", snapshot.HeadCommitSha);
         Assert.Collection(
             snapshot.Files,
             file => Assert.Equal(

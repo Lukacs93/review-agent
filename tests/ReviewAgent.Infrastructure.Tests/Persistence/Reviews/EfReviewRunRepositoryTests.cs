@@ -16,6 +16,7 @@ public sealed class EfReviewRunRepositoryTests : IDisposable
     private const int Line = 12;
     private const string CommentBody = "Use an application handler instead of the DbContext.";
     private const string Summary = "One architecture issue.";
+    private const string CommitSha = "9fceb02d0ae598e95dc970b74767f19372d61af8";
 
     private readonly SqliteTestDatabase _database = new();
 
@@ -187,7 +188,7 @@ public sealed class EfReviewRunRepositoryTests : IDisposable
             CommentBody,
             suggestedFix: null,
             Now);
-        run.Finish(Summary, Now);
+        run.Finish(Summary, CommitSha, Now);
         return run;
     }
 

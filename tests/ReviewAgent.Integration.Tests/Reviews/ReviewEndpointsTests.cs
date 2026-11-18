@@ -24,6 +24,7 @@ public sealed class ReviewEndpointsTests(ReviewAgentApiFactory factory) : IClass
     private const string CommentBody = "Use an application handler instead of the DbContext.";
     private const string EditedBody = "Move this query to an application handler.";
     private const string Summary = "One architecture issue.";
+    private const string CommitSha = "9fceb02d0ae598e95dc970b74767f19372d61af8";
 
     // The API sends enums as text, so the tests read them the same way.
     private static readonly JsonSerializerOptions _jsonOptions = new(JsonSerializerDefaults.Web)
@@ -189,7 +190,7 @@ public sealed class ReviewEndpointsTests(ReviewAgentApiFactory factory) : IClass
             CommentBody,
             suggestedFix: null,
             now);
-        run.Finish(Summary, now);
+        run.Finish(Summary, CommitSha, now);
 
         await repository.SaveAsync(run, CancellationToken.None);
         return (run.Id.Value, commentId.Value);

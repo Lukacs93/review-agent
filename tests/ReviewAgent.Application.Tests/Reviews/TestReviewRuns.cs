@@ -15,6 +15,7 @@ internal static class TestReviewRuns
     public const string Rule = "ARCH-01";
     public const string CommentBody = "Use an application handler instead of the DbContext.";
     public const string Summary = "One architecture issue.";
+    public const string CommitSha = "9fceb02d0ae598e95dc970b74767f19372d61af8";
 
     public static DateTimeOffset Now => new(2026, 11, 16, 9, 0, 0, TimeSpan.Zero);
 
@@ -34,7 +35,7 @@ internal static class TestReviewRuns
             CommentBody,
             suggestedFix: null,
             Now);
-        run.Finish(Summary, Now);
+        run.Finish(Summary, CommitSha, Now);
 
         await repository.SaveAsync(run, CancellationToken.None);
         return (run.Id.Value, commentId.Value);

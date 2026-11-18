@@ -9,6 +9,7 @@ public sealed class ReviewRunTests
 {
     private const string Summary = "Two rule violations found.";
     private const string RejectionReason = "The query does not change state, so CQRS-01 is not broken.";
+    private const string CommitSha = "9fceb02d0ae598e95dc970b74767f19372d61af8";
 
     private static DateTimeOffset Now => new(2026, 11, 14, 10, 0, 0, TimeSpan.Zero);
 
@@ -56,7 +57,7 @@ public sealed class ReviewRunTests
     public void Comment_cannot_be_proposed_after_the_review_finished()
     {
         var run = StartedRun();
-        run.Finish(Summary, Now);
+        run.Finish(Summary, CommitSha, Now);
 
         AssertFails(ReviewRunErrors.ProposeWhenNotRunning, () => ProposeComment(run));
     }
@@ -66,10 +67,24 @@ public sealed class ReviewRunTests
     {
         var run = StartedRun();
 
-        run.Finish(Summary, Now);
+        run.Finish(Summary, CommitSha, Now);
 
         Assert.Equal(ReviewStatus.AwaitingApproval, run.Status);
         Assert.Equal(Summary, run.Summary);
+        Assert.Equal(CommitSha, run.ReviewedCommitSha);
+    }
+
+    [Theory]
+    [InlineData(null)]
+    [InlineData(" ")]
+    public void Review_without_a_known_commit_can_finish(string? reviewedCommitSha)
+    {
+        var run = StartedRun();
+
+        run.Finish(Summary, reviewedCommitSha, Now);
+
+        Assert.Equal(ReviewStatus.AwaitingApproval, run.Status);
+        Assert.Null(run.ReviewedCommitSha);
     }
 
     [Fact]
@@ -87,7 +102,7 @@ public sealed class ReviewRunTests
     public void Finished_review_cannot_fail()
     {
         var run = StartedRun();
-        run.Finish(Summary, Now);
+        run.Finish(Summary, CommitSha, Now);
 
         AssertFails(ReviewRunErrors.FailWhenNotRunning, () => run.Fail("Too late.", Now));
     }
@@ -198,7 +213,7 @@ public sealed class ReviewRunTests
     public void Review_without_comments_can_be_published()
     {
         var run = StartedRun();
-        run.Finish("No rule violations found.", Now);
+        run.Finish("No rule violations found.", CommitSha, Now);
 
         run.CompletePublishing(Now);
 
@@ -256,7 +271,7 @@ public sealed class ReviewRunTests
         var run = StartedRun();
         var rejected = ProposeComment(run);
         run.RejectComment(rejected, RejectionReason, Now);
-        run.Finish(Summary, Now);
+        run.Finish(Summary, CommitSha, Now);
 
         AssertFails(
             ReviewRunErrors.RejectedCommentCannotBeDecided(rejected),
@@ -270,7 +285,7 @@ public sealed class ReviewRunTests
         var rejected = ProposeComment(run);
         var kept = ProposeComment(run);
         run.RejectComment(rejected, RejectionReason, Now);
-        run.Finish(Summary, Now);
+        run.Finish(Summary, CommitSha, Now);
         run.ApproveComment(kept, Now);
 
         run.MarkCommentPublished(kept, Now);
@@ -346,7 +361,7 @@ public sealed class ReviewRunTests
         var run = StartedRun();
         run.RecordToolCall("get_diff", "src/Orders.Api/Controllers/OrdersController.cs", Now);
         var commentIds = Enumerable.Range(0, count).Select(_ => ProposeComment(run)).ToList();
-        run.Finish(Summary, Now);
+        run.Finish(Summary, CommitSha, Now);
         return (run, commentIds);
     }
 }

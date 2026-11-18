@@ -54,6 +54,19 @@ public sealed class ReviewEventSerializerTests
     }
 
     [Fact]
+    public void Finished_event_stored_without_the_reviewed_commit_is_read()
+    {
+        var finished = new ReviewFinished(RunId, Now, "One architecture issue.", ReviewedCommitSha: null);
+        var data = ReviewEventSerializer.Serialize(finished)
+            .Replace(",\"ReviewedCommitSha\":null", string.Empty, StringComparison.Ordinal);
+
+        var read = ReviewEventSerializer.Deserialize(ReviewEventSerializer.TypeNameOf(finished), data);
+
+        Assert.DoesNotContain("ReviewedCommitSha", data, StringComparison.Ordinal);
+        Assert.Equal(finished, read);
+    }
+
+    [Fact]
     public void Unknown_event_type_is_rejected()
     {
         var error = Assert.Throws<InvalidOperationException>(
@@ -76,7 +89,7 @@ public sealed class ReviewEventSerializerTests
             "Use an application handler instead of the DbContext.",
             null),
         new CommentRejected(RunId, Now, CommentId, "The query does not change state."),
-        new ReviewFinished(RunId, Now, "One architecture issue."),
+        new ReviewFinished(RunId, Now, "One architecture issue.", "9fceb02d0ae598e95dc970b74767f19372d61af8"),
         new ReviewFailed(RunId, Now, "The model did not answer."),
         new CommentApproved(RunId, Now, CommentId),
         new CommentEdited(RunId, Now, CommentId, "Move this query to a handler."),
