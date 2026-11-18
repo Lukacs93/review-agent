@@ -31,6 +31,12 @@ public sealed class ReviewRun
 
     public string? FailureReason { get; private set; }
 
+    /// <summary>
+    /// The pull request's latest commit when the agent read it; <see langword="null"/> until the review has finished,
+    /// or when the source does not tell it.
+    /// </summary>
+    public string? ReviewedCommitSha { get; private set; }
+
     /// <summary>The number of events applied so far; used to detect concurrent changes when saving.</summary>
     public int Version { get; private set; }
 
@@ -115,12 +121,13 @@ public sealed class ReviewRun
         Raise(new CommentRejected(Id, now, commentId, reason.Trim()));
     }
 
-    public void Finish(string summary, DateTimeOffset now)
+    public void Finish(string summary, string? reviewedCommitSha, DateTimeOffset now)
     {
         EnsureStatus(ReviewStatus.Running, ReviewRunErrors.FinishWhenNotRunning);
         EnsureNotBlank(summary, ReviewRunErrors.SummaryRequired);
 
-        Raise(new ReviewFinished(Id, now, summary.Trim()));
+        var commitSha = string.IsNullOrWhiteSpace(reviewedCommitSha) ? null : reviewedCommitSha.Trim();
+        Raise(new ReviewFinished(Id, now, summary.Trim(), commitSha));
     }
 
     public void Fail(string reason, DateTimeOffset now)
@@ -234,6 +241,7 @@ public sealed class ReviewRun
 
             case ReviewFinished finished:
                 Summary = finished.Summary;
+                ReviewedCommitSha = finished.ReviewedCommitSha;
                 Status = ReviewStatus.AwaitingApproval;
                 break;
 

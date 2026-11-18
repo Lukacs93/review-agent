@@ -6,7 +6,8 @@ namespace ReviewAgent.Infrastructure.SourceControl.GitHub;
 /// <summary><c>GET /repos/{owner}/{repo}/pulls/{number}</c>.</summary>
 internal sealed record GitHubPullRequest(string Title, string? Body, GitHubBranch Base, GitHubBranch Head);
 
-internal sealed record GitHubBranch(string Ref);
+/// <summary>A branch of a pull request: its name, and the SHA of its latest commit.</summary>
+internal sealed record GitHubBranch(string Ref, string? Sha);
 
 /// <summary>One item of <c>GET /repos/{owner}/{repo}/pulls/{number}/files</c>.</summary>
 internal sealed record GitHubChangedFile(string FileName, string Status, string? Patch);

@@ -61,7 +61,8 @@ internal sealed class GitHubPullRequestSource(HttpClient httpClient) : IPullRequ
             details.Body ?? string.Empty,
             details.Base.Ref,
             details.Head.Ref,
-            files);
+            files,
+            details.Head.Sha);
     }
 
     public async Task<string?> GetFileAsync(

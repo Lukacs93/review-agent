@@ -48,10 +48,12 @@ internal sealed partial class ReviewAgentRunner(
         string? failure;
         try
         {
-            var summary = await RunAgentAsync(runId, run.PullRequest, timeoutSource.Token);
+            var (summary, reviewedCommitSha) = await RunAgentAsync(runId, run.PullRequest, timeoutSource.Token);
             if (!string.IsNullOrWhiteSpace(summary))
             {
-                await commands.FinishReview.HandleAsync(new FinishReviewCommand(runId, summary), cancellationToken);
+                await commands.FinishReview.HandleAsync(
+                    new FinishReviewCommand(runId, summary, reviewedCommitSha),
+                    cancellationToken);
                 return;
             }
 
@@ -76,7 +78,8 @@ internal sealed partial class ReviewAgentRunner(
         await commands.FailReview.HandleAsync(new FailReviewCommand(runId, failure), cancellationToken);
     }
 
-    private async Task<string> RunAgentAsync(
+    /// <summary>Runs the agents; returns the summary, and the commit of the pull request they reviewed.</summary>
+    private async Task<(string Summary, string? ReviewedCommitSha)> RunAgentAsync(
         Guid runId,
         PullRequestRef pullRequest,
         CancellationToken cancellationToken)
@@ -114,13 +117,14 @@ internal sealed partial class ReviewAgentRunner(
 
         if (!settings.Verifier.Enabled || string.IsNullOrWhiteSpace(summary))
         {
-            return summary;
+            return (summary, snapshot.HeadCommitSha);
         }
 
         var verificationFailure = await VerifyCommentsAsync(runId, connection.Tools, chatClient, cancellationToken);
-        return verificationFailure is null
+        var verifiedSummary = verificationFailure is null
             ? summary
             : $"{summary}\n\n{AgentErrors.VerificationFailed(verificationFailure)}";
+        return (verifiedSummary, snapshot.HeadCommitSha);
     }
 
     /// <summary>

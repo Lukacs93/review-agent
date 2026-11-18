@@ -29,8 +29,16 @@ public sealed record CommentProposed(
 public sealed record CommentRejected(ReviewRunId RunId, DateTimeOffset OccurredAt, CommentId CommentId, string Reason)
     : ReviewEvent(RunId, OccurredAt);
 
-/// <summary>The agent finished the review.</summary>
-public sealed record ReviewFinished(ReviewRunId RunId, DateTimeOffset OccurredAt, string Summary)
+/// <summary>
+/// The agent finished the review. <paramref name="ReviewedCommitSha"/> is the pull request's latest commit when the
+/// agent read it, so the comments can be published on the code they were written for; <see langword="null"/> when
+/// the source does not tell it.
+/// </summary>
+public sealed record ReviewFinished(
+    ReviewRunId RunId,
+    DateTimeOffset OccurredAt,
+    string Summary,
+    string? ReviewedCommitSha)
     : ReviewEvent(RunId, OccurredAt);
 
 /// <summary>The run stopped with an error.</summary>
