@@ -15,9 +15,11 @@ using ReviewAgent.Infrastructure.Rules;
 namespace ReviewAgent.Infrastructure.Agents;
 
 /// <summary>
-/// Runs the review agent on one review run with Microsoft Agent Framework. The model reads the pull request through
-/// the MCP tools and proposes comments through <see cref="ProposeCommentTool"/>; everything it does is saved
-/// through the commands. Its limits: <see cref="AgentOptions.MaxToolRounds"/> and <see cref="AgentOptions.Timeout"/>.
+/// Runs the agents on one review run with Microsoft Agent Framework. The reviewer reads the pull request through
+/// the MCP tools and proposes comments through <see cref="ProposeCommentTool"/>; then the verifier double-checks
+/// them and rejects the wrong ones through <see cref="RejectCommentTool"/>. The two run one after the other, in
+/// this order, and everything they do is saved through the commands. Their limits:
+/// <see cref="AgentOptions.MaxToolRounds"/> and <see cref="AgentOptions.Timeout"/>.
 /// </summary>
 internal sealed partial class ReviewAgentRunner(
     IReviewRunRepository repository,
@@ -87,17 +89,9 @@ internal sealed partial class ReviewAgentRunner(
         var rules = MarkdownRuleSetParser.Parse(rulesMarkdown);
 
         await using var connection = await toolsConnector.ConnectAsync(pullRequest, cancellationToken);
-        var proposeComment = new ProposeCommentTool(runId, snapshot, rules, commands.ProposeComment);
-
-        List<AITool> tools =
-        [
-            .. connection.Tools
-                .Append(proposeComment.AsAIFunction())
-                .Select(tool => new RecordedToolFunction(tool, runId, commands.RecordToolCall)),
-        ];
 
         // The function-invoking client runs the tools the model asks for and sends back the results, until the
-        // model answers without asking for more; the agent reuses it instead of adding its own.
+        // model answers without asking for more; the agents reuse it instead of adding their own.
         using var chatClient = chatClientFactory.Create()
             .AsBuilder()
             .UseFunctionInvocation(
@@ -105,15 +99,83 @@ internal sealed partial class ReviewAgentRunner(
                 functionInvoker => functionInvoker.MaximumIterationsPerRequest = settings.MaxToolRounds)
             .Build();
 
-        var agent = chatClient.AsAIAgent(
+        var proposeComment = new ProposeCommentTool(runId, snapshot, rules, commands.ProposeComment);
+        var reviewer = chatClient.AsAIAgent(
             instructions: ReviewInstructions.SystemPrompt,
-            name: ReviewInstructions.AgentName,
-            tools: tools);
+            name: ReviewInstructions.ReviewerName,
+            tools: RecordedTools(
+                runId,
+                connection.Tools.Append(proposeComment.AsAIFunction()),
+                ReviewInstructions.ReviewerName));
 
-        var response = await agent.RunAsync(ReviewInstructions.TaskPrompt, cancellationToken: cancellationToken);
-        return response.Text;
+        var response = await reviewer.RunAsync(ReviewInstructions.TaskPrompt, cancellationToken: cancellationToken);
+        var summary = response.Text;
+
+        if (!settings.Verifier.Enabled || string.IsNullOrWhiteSpace(summary))
+        {
+            return summary;
+        }
+
+        var verificationFailure = await VerifyCommentsAsync(runId, connection.Tools, chatClient, cancellationToken);
+        return verificationFailure is null
+            ? summary
+            : $"{summary}\n\n{AgentErrors.VerificationFailed(verificationFailure)}";
     }
+
+    /// <summary>
+    /// Runs the verifier agent on the comments the reviewer proposed; it rejects the ones the code does not support.
+    /// Returns why the verification failed, or <see langword="null"/>. A failed verification does not fail the
+    /// review: the reviewer's comments are kept, and the summary says they were not double-checked.
+    /// </summary>
+    private async Task<string?> VerifyCommentsAsync(
+        Guid runId,
+        IReadOnlyList<AIFunction> pullRequestTools,
+        IChatClient chatClient,
+        CancellationToken cancellationToken)
+    {
+        var run = await repository.GetAsync(new ReviewRunId(runId), cancellationToken);
+        var proposed = run.Comments.Where(comment => !comment.IsRejected).ToList();
+        if (proposed.Count == 0)
+        {
+            return null;
+        }
+
+        var rejectComment = new RejectCommentTool(
+            runId,
+            proposed.Select(comment => comment.Id.Value),
+            commands.RejectComment);
+        var verifier = chatClient.AsAIAgent(
+            instructions: ReviewInstructions.VerifierSystemPrompt,
+            name: ReviewInstructions.VerifierName,
+            tools: RecordedTools(
+                runId,
+                pullRequestTools.Append(rejectComment.AsAIFunction()),
+                ReviewInstructions.VerifierName));
+
+        try
+        {
+            await verifier.RunAsync(
+                ReviewInstructions.VerifierTaskPrompt(proposed),
+                cancellationToken: cancellationToken);
+            return null;
+        }
+        catch (Exception exception) when (exception is not OperationCanceledException)
+        {
+            LogVerificationFailed(_logger, runId, exception);
+            return ModelErrorDetails.Describe(exception);
+        }
+    }
+
+    private List<AITool> RecordedTools(Guid runId, IEnumerable<AIFunction> tools, string agentName) =>
+    [
+        .. tools.Select(tool => new RecordedToolFunction(tool, runId, commands.RecordToolCall, agentName)),
+    ];
 
     [LoggerMessage(Level = LogLevel.Warning, Message = "The review of run {RunId} failed.")]
     private static partial void LogReviewFailed(ILogger logger, Guid runId, Exception exception);
+
+    [LoggerMessage(
+        Level = LogLevel.Warning,
+        Message = "The verification of run {RunId} failed; its comments are kept unverified.")]
+    private static partial void LogVerificationFailed(ILogger logger, Guid runId, Exception exception);
 }

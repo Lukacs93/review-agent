@@ -40,6 +40,13 @@ internal static class AgentErrors
         $"The prompt '{resourceName}' is not built into the application. Check the EmbeddedResource item in "
         + "ReviewAgent.Infrastructure.csproj.";
 
+    public static string PlaceholderMissing(string resourceName, string placeholder) =>
+        $"The prompt '{resourceName}' has no '{placeholder}' placeholder, so the agent would get its task without "
+        + "the data it works on. Put the placeholder back into the prompt file.";
+
+    public static string VerificationFailed(string reason) =>
+        $"Note: the comments were not double-checked, because the verification failed: {reason}";
+
     public static string TeamRulesNotFound(string path) =>
         $"The repository has no team rules file at '{path}', so there is nothing to review against.";
 

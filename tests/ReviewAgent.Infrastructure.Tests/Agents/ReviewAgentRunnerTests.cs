@@ -6,6 +6,7 @@ using ReviewAgent.Application.Reviews.Commands.FailReview;
 using ReviewAgent.Application.Reviews.Commands.FinishReview;
 using ReviewAgent.Application.Reviews.Commands.ProposeComment;
 using ReviewAgent.Application.Reviews.Commands.RecordToolCall;
+using ReviewAgent.Application.Reviews.Commands.RejectComment;
 using ReviewAgent.Application.SourceControl;
 using ReviewAgent.Domain.Reviews;
 using ReviewAgent.Domain.Rules;
@@ -25,6 +26,7 @@ public sealed class ReviewAgentRunnerTests : IDisposable
     private const string CommentBody = "Use an application handler instead of the DbContext.";
     private const string Summary = "Adds a discount endpoint. The controller uses the DbContext directly.";
     private const string RulesPath = ".review/rules.md";
+    private const string RejectionReason = "Line 10 only declares the class; the DbContext is on line 11.";
 
     private readonly SqliteTestDatabase _database = new();
     private readonly EfReviewRunRepository _repository;
@@ -125,9 +127,95 @@ public sealed class ReviewAgentRunnerTests : IDisposable
         Assert.Equal("Stopped.", run.FailureReason);
     }
 
+    [Fact]
+    public async Task Verifier_rejects_the_comment_the_code_does_not_support()
+    {
+        var model = new ScriptedChatClient(
+            ProposesComment(line: 10),
+            ProposesComment(line: 11),
+            ScriptedChatClient.Answers(Summary),
+            ScriptedChatClient.CallsToolWith(
+                RejectCommentTool.Name,
+                messages => new() { ["commentId"] = FirstCommentId(messages), ["reason"] = RejectionReason }),
+            ScriptedChatClient.Answers("Kept 1 comment and rejected 1."));
+        var runId = await StartRunAsync();
+
+        await Runner(() => model, verifierEnabled: true).ReviewAsync(runId, CancellationToken.None);
+
+        var run = await LoadAsync(runId);
+        Assert.Equal(ReviewStatus.AwaitingApproval, run.Status);
+        Assert.Equal(Summary, run.Summary);
+        Assert.Equal(3, run.ToolCallCount);
+        var rejected = Assert.Single(run.Comments, comment => comment.IsRejected);
+        Assert.Equal(10, rejected.Location.Line);
+        Assert.Equal(RejectionReason, rejected.RejectionReason);
+    }
+
+    [Fact]
+    public async Task Verifier_does_not_run_without_proposed_comments()
+    {
+        var model = new ScriptedChatClient(ScriptedChatClient.Answers(Summary));
+        var runId = await StartRunAsync();
+
+        await Runner(() => model, verifierEnabled: true).ReviewAsync(runId, CancellationToken.None);
+
+        var run = await LoadAsync(runId);
+        Assert.Equal(ReviewStatus.AwaitingApproval, run.Status);
+        Assert.Equal(Summary, run.Summary);
+    }
+
+    [Fact]
+    public async Task Verifier_turned_off_does_not_run()
+    {
+        var model = new ScriptedChatClient(ProposesComment(line: 11), ScriptedChatClient.Answers(Summary));
+        var runId = await StartRunAsync();
+
+        await Runner(() => model, verifierEnabled: false).ReviewAsync(runId, CancellationToken.None);
+
+        var run = await LoadAsync(runId);
+        Assert.Equal(Summary, run.Summary);
+        Assert.DoesNotContain(run.Comments, comment => comment.IsRejected);
+    }
+
+    [Fact]
+    public async Task Failed_verification_keeps_the_comments_and_says_so()
+    {
+        const string error = "The model is not available.";
+        var model = new ScriptedChatClient(
+            ProposesComment(line: 11),
+            ScriptedChatClient.Answers(Summary),
+            ScriptedChatClient.Fails(new InvalidOperationException(error)));
+        var runId = await StartRunAsync();
+
+        await Runner(() => model, verifierEnabled: true).ReviewAsync(runId, CancellationToken.None);
+
+        var run = await LoadAsync(runId);
+        Assert.Equal(ReviewStatus.AwaitingApproval, run.Status);
+        Assert.Equal($"{Summary}\n\n{AgentErrors.VerificationFailed(error)}", run.Summary);
+        Assert.False(Assert.Single(run.Comments).IsRejected);
+    }
+
     public void Dispose() => _database.Dispose();
 
-    private ReviewAgentRunner Runner(Func<IChatClient> createModel, string? rulesMarkdown = TestData.RulesMarkdown) =>
+    private static Func<IReadOnlyList<ChatMessage>, ChatResponse> ProposesComment(int line) =>
+        ScriptedChatClient.CallsTool(
+            ProposeCommentTool.Name,
+            new() { ["path"] = FilePath, ["line"] = line, ["ruleId"] = "ARCH-01", ["body"] = CommentBody });
+
+    // The verifier's task lists each proposed comment as "- id: <id>"; the first one is the first proposed.
+    private static string FirstCommentId(IReadOnlyList<ChatMessage> messages)
+    {
+        const string idLabel = "- id: ";
+        var task = messages.Last(message => message.Role == ChatRole.User).Text;
+        var idStart = task.IndexOf(idLabel, StringComparison.Ordinal) + idLabel.Length;
+        var idEnd = task.IndexOf('\n', idStart);
+        return task[idStart..idEnd];
+    }
+
+    private ReviewAgentRunner Runner(
+        Func<IChatClient> createModel,
+        string? rulesMarkdown = TestData.RulesMarkdown,
+        bool verifierEnabled = false) =>
         new(
             _repository,
             new FakePullRequestSource(TestData.PullRequest(FilePath, Patch), rulesMarkdown),
@@ -136,6 +224,7 @@ public sealed class ReviewAgentRunnerTests : IDisposable
             new ReviewAgentCommands(
                 new RecordToolCallCommandHandler(_repository, TimeProvider.System),
                 new ProposeCommentCommandHandler(_repository, TimeProvider.System),
+                new RejectCommentCommandHandler(_repository, TimeProvider.System),
                 new FinishReviewCommandHandler(_repository, TimeProvider.System),
                 new FailReviewCommandHandler(_repository, TimeProvider.System)),
             Options.Create(new AgentOptions
@@ -146,6 +235,7 @@ public sealed class ReviewAgentRunnerTests : IDisposable
                 TeamRulesPath = RulesPath,
                 MaxToolRounds = 10,
                 Timeout = TimeSpan.FromMinutes(1),
+                Verifier = new VerifierOptions { Enabled = verifierEnabled },
             }),
             NullLoggerFactory.Instance);
 

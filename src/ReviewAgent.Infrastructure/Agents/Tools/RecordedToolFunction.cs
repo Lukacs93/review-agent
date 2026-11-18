@@ -7,12 +7,14 @@ namespace ReviewAgent.Infrastructure.Agents.Tools;
 
 /// <summary>
 /// Wraps a tool so every call the model makes is recorded on the review run before it runs: the run shows each
-/// step, and the tool calls can be counted when the agent is evaluated.
+/// step, and the tool calls can be counted when the agent is evaluated. Each call is recorded with the name of the
+/// agent that made it, for example <c>verifier:get_diff</c>.
 /// </summary>
 internal sealed class RecordedToolFunction(
     AIFunction innerFunction,
     Guid runId,
-    ICommandHandler<RecordToolCallCommand> recordToolCall) : DelegatingAIFunction(innerFunction)
+    ICommandHandler<RecordToolCallCommand> recordToolCall,
+    string agentName) : DelegatingAIFunction(innerFunction)
 {
     protected override async ValueTask<object?> InvokeCoreAsync(
         AIFunctionArguments arguments,
@@ -24,7 +26,9 @@ internal sealed class RecordedToolFunction(
             ? null
             : JsonSerializer.Serialize(new Dictionary<string, object?>(arguments));
 
-        await recordToolCall.HandleAsync(new RecordToolCallCommand(runId, Name, argumentsJson), cancellationToken);
+        await recordToolCall.HandleAsync(
+            new RecordToolCallCommand(runId, $"{agentName}:{Name}", argumentsJson),
+            cancellationToken);
         return await base.InvokeCoreAsync(arguments, cancellationToken);
     }
 }

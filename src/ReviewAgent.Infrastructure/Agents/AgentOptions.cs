@@ -53,6 +53,9 @@ internal sealed class AgentOptions : IValidatableObject
     [Range(typeof(TimeSpan), "00:00:10", "01:00:00", ErrorMessage = AgentErrors.TimeoutOutOfRange)]
     public TimeSpan Timeout { get; init; } = TimeSpan.FromMinutes(5);
 
+    /// <summary>The verifier agent, which double-checks the proposed comments.</summary>
+    public VerifierOptions Verifier { get; init; } = new();
+
     public IEnumerable<ValidationResult> Validate(ValidationContext validationContext)
     {
         if (RequestTimeout >= Timeout)

@@ -3,6 +3,7 @@ using ReviewAgent.Application.Reviews.Commands.FailReview;
 using ReviewAgent.Application.Reviews.Commands.FinishReview;
 using ReviewAgent.Application.Reviews.Commands.ProposeComment;
 using ReviewAgent.Application.Reviews.Commands.RecordToolCall;
+using ReviewAgent.Application.Reviews.Commands.RejectComment;
 
 namespace ReviewAgent.Infrastructure.Agents;
 
@@ -12,5 +13,6 @@ namespace ReviewAgent.Infrastructure.Agents;
 internal sealed record ReviewAgentCommands(
     ICommandHandler<RecordToolCallCommand> RecordToolCall,
     ICommandHandler<ProposeCommentCommand, Guid> ProposeComment,
+    ICommandHandler<RejectCommentCommand> RejectComment,
     ICommandHandler<FinishReviewCommand> FinishReview,
     ICommandHandler<FailReviewCommand> FailReview);
