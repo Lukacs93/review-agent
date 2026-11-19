@@ -10,7 +10,7 @@
     <PackageReference Include="Swashbuckle.AspNetCore.SwaggerUI" />
   </ItemGroup>
 
-  <!-- The saved pull requests the agent can review offline; copied next to the application. -->
+  <!-- The saved pull requests, reviewed without GitHub; copied next to the application, read-only. -->
   <ItemGroup>
     <Content Include="..\..\samples\**\*" LinkBase="samples" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>

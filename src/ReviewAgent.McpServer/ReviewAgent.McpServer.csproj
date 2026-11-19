@@ -9,7 +9,7 @@
     <PackageReference Include="ModelContextProtocol.AspNetCore" />
   </ItemGroup>
 
-  <!-- The saved pull requests the tools read when the source is offline; copied next to the server. -->
+  <!-- The saved pull requests the tools read when the source is "Saved"; copied next to the server, read-only. -->
   <ItemGroup>
     <Content Include="..\..\samples\**\*" LinkBase="samples" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
