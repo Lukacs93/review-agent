@@ -25,7 +25,7 @@ public sealed class GitHubReviewPublisherTests : IDisposable
     public GitHubReviewPublisherTests()
     {
         _client = new HttpClient(_handler);
-        GitHubPullRequestSource.ConfigureClient(_client, new GitHubOptions { Token = "test-token" });
+        GitHubPullRequestSource.ConfigureClient(_client, new GitHubOptions().ApiUrl, "test-token");
     }
 
     private static ReviewPublication Publication => new(
