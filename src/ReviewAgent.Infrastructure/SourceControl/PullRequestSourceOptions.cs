@@ -19,10 +19,10 @@ internal sealed class PullRequestSourceOptions
 
     /// <summary>
     /// The directory of the saved pull requests. A relative path is relative to the application's own directory,
-    /// where the build copies the <c>samples</c> folder.
+    /// where the build copies the repository's <c>samples</c> folder.
     /// </summary>
     [Required(ErrorMessage = SavedPullRequestErrors.DirectoryRequired)]
-    public string SavedDirectory { get; init; } = string.Empty;
+    public string SavedDirectory { get; init; } = "samples/pull-requests";
 
     public GitHubOptions GitHub { get; init; } = new();
 }
