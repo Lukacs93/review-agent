@@ -40,7 +40,7 @@ app.MapHealthChecks("/health");
 app.MapReviewEndpoints();
 app.MapPullRequestEndpoints();
 
-await app.Services.MigrateDatabaseAsync(app.Lifetime.ApplicationStopping);
+await app.Services.MigrateDatabaseAsync(app.Logger, app.Lifetime.ApplicationStopping);
 await app.Services.FailInterruptedReviewsAsync(app.Logger, app.Lifetime.ApplicationStopping);
 await app.Services.ResumeInterruptedPublishingAsync(app.Logger, app.Lifetime.ApplicationStopping);
 await app.RunAsync();

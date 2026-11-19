@@ -5,6 +5,10 @@ namespace ReviewAgent.Infrastructure.SourceControl.GitHub.Errors;
 /// <summary>The messages of the exceptions thrown when reading pull requests and publishing reviews.</summary>
 internal static class GitHubErrors
 {
+    public const string WriteTokenRequired =
+        "PullRequests:GitHub:WriteToken is required when the source is GitHub: the token the reviews are "
+        + "published with, with read and write access to pull requests.";
+
     public static string InvalidPath(string path) =>
         $"'{path}' is not a valid file path. Use a path relative to the repository root, without '.' or '..' parts.";
 

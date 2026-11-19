@@ -11,23 +11,26 @@ using ReviewAgent.Infrastructure;
 namespace ReviewAgent.Integration.Tests;
 
 /// <summary>
-/// Runs the real API in memory against its own SQLite database file, which is migrated at startup like in
-/// production and deleted when the tests finish. Started reviews are not queued for the agent, and runs are not
+/// Runs the real API in memory against its own data directory and SQLite database file, which is migrated at
+/// startup like in production; both are deleted when the tests finish. Started reviews are not queued for the agent, and runs are not
 /// queued for publishing.
 /// </summary>
 public sealed class ReviewAgentApiFactory : WebApplicationFactory<Program>
 {
-    private readonly string _databasePath = Path.Combine(
+    private readonly string _dataDirectory = Path.Combine(
         Path.GetTempPath(),
-        "review-agent-tests-" + Guid.NewGuid().ToString("N", CultureInfo.InvariantCulture) + ".db");
+        "review-agent-tests-" + Guid.NewGuid().ToString("N", CultureInfo.InvariantCulture));
 
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
         ArgumentNullException.ThrowIfNull(builder);
 
+        // Not the API's own "data" folder, so the tests leave nothing in the project. The relative database file
+        // goes into this directory.
+        builder.UseSetting("Storage:DataDirectory", _dataDirectory);
         builder.UseSetting(
             "ConnectionStrings:" + DependencyInjection.ConnectionStringName,
-            "Data Source=" + _databasePath);
+            "Data Source=review-agent.db");
 
         builder.ConfigureTestServices(services =>
         {
@@ -41,19 +44,22 @@ public sealed class ReviewAgentApiFactory : WebApplicationFactory<Program>
     public override async ValueTask DisposeAsync()
     {
         await base.DisposeAsync();
-        DeleteDatabase();
+        DeleteDataDirectory();
     }
 
     protected override void Dispose(bool disposing)
     {
         base.Dispose(disposing);
-        DeleteDatabase();
+        DeleteDataDirectory();
     }
 
-    private void DeleteDatabase()
+    private void DeleteDataDirectory()
     {
         // SQLite keeps pooled connections open, which would lock the file on Windows.
         SqliteConnection.ClearAllPools();
-        File.Delete(_databasePath);
+        if (Directory.Exists(_dataDirectory))
+        {
+            Directory.Delete(_dataDirectory, recursive: true);
+        }
     }
 }

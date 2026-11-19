@@ -56,6 +56,9 @@ public sealed class PullRequestSourceSelectionTests
             {
                 ["PullRequests:Source"] = source,
                 ["PullRequests:SavedDirectory"] = "samples/pull-requests",
+
+                // The API does not start with the GitHub source without it.
+                ["PullRequests:GitHub:WriteToken"] = "write-token",
             })
             .Build();
 

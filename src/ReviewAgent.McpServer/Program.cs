@@ -5,14 +5,10 @@ using ReviewAgent.McpServer.Tools;
 var builder = WebApplication.CreateBuilder(args);
 
 builder.Services.AddHttpContextAccessor();
+// Only the read-only part of the Infrastructure layer: the pull request sources and the team rules setting. The
+// server never publishes, so it gets neither the publishers nor the write token.
 builder.Services.AddSourceControl();
 builder.Services.AddScoped<ReviewedPullRequest>();
-// The "ReviewTools" section of the configuration, bound to ReviewToolsOptions and checked against its attributes
-// when the server starts, so a missing setting stops it right away.
-builder.Services.AddOptions<ReviewToolsOptions>()
-    .BindConfiguration(ReviewToolsOptions.SectionName)
-    .ValidateDataAnnotations()
-    .ValidateOnStart();
 builder.Services.AddHealthChecks();
 
 // Stateless HTTP (the SDK's default): every tool call is its own HTTP request, so the tools can read the

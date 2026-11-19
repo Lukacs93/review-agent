@@ -42,8 +42,10 @@ public sealed class GitHubPullRequestSourceTests : IDisposable
     public GitHubPullRequestSourceTests()
     {
         _client = new HttpClient(_handler);
-        GitHubPullRequestSource.ConfigureClient(_client, new GitHubOptions { Token = Token });
+        GitHubPullRequestSource.ConfigureClient(_client, PublicGitHub, Token);
     }
+
+    private static Uri PublicGitHub => new GitHubOptions().ApiUrl;
 
     private static PullRequestRef PullRequest => new("test", "demo", 1);
 
@@ -183,7 +185,7 @@ public sealed class GitHubPullRequestSourceTests : IDisposable
     {
         using var client = new HttpClient();
 
-        GitHubPullRequestSource.ConfigureClient(client, new GitHubOptions());
+        GitHubPullRequestSource.ConfigureClient(client, PublicGitHub, token: null);
 
         Assert.Null(client.DefaultRequestHeaders.Authorization);
     }
@@ -193,9 +195,7 @@ public sealed class GitHubPullRequestSourceTests : IDisposable
     {
         using var client = new HttpClient();
 
-        GitHubPullRequestSource.ConfigureClient(
-            client,
-            new GitHubOptions { ApiUrl = new Uri("https://github.example.com/api/v3") });
+        GitHubPullRequestSource.ConfigureClient(client, new Uri("https://github.example.com/api/v3"), token: null);
 
         Assert.Equal("https://github.example.com/api/v3/", client.BaseAddress?.ToString());
     }

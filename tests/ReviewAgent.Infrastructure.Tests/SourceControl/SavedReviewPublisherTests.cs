@@ -20,7 +20,7 @@ public sealed class SavedReviewPublisherTests : IDisposable
         [new CommentToPublish("src/Order.cs", 12, "ARCH-01", "Use an application handler.", SuggestedFix: null)]);
 
     private string PublishedFile =>
-        Path.Combine(_root.Path, "test", "demo", "1", "published-reviews", $"{_runId}.json");
+        Path.Combine(_root.Path, "test", "demo", "1", $"{_runId}.json");
 
     private SavedReviewPublisher Publisher => new(_root.Path);
 

@@ -16,7 +16,7 @@ namespace ReviewAgent.McpServer.Tools;
 internal sealed class PullRequestTools(
     IPullRequestSource source,
     ReviewedPullRequest reviewedPullRequest,
-    IOptions<ReviewToolsOptions> options)
+    IOptions<TeamRulesOptions> teamRules)
 {
     [McpServerTool(Name = "get_pull_request", ReadOnly = true)]
     [Description(
@@ -80,7 +80,7 @@ internal sealed class PullRequestTools(
         + "for example ARCH-01.")]
     public async Task<string> GetTeamRulesAsync(CancellationToken cancellationToken)
     {
-        var rulesPath = options.Value.TeamRulesPath;
+        var rulesPath = teamRules.Value.TeamRulesPath;
         return await ReadFileAsync(rulesPath, cancellationToken)
             ?? throw new McpException(ToolErrors.TeamRulesNotFound(rulesPath));
     }

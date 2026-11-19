@@ -266,11 +266,11 @@ public sealed class ReviewAgentRunnerTests : IDisposable
                 Endpoint = new Uri("https://model.example/"),
                 Model = "test-model",
                 McpServerUrl = new Uri("http://localhost:5090/"),
-                TeamRulesPath = RulesPath,
                 MaxToolRounds = 10,
                 Timeout = TimeSpan.FromMinutes(1),
                 Verifier = new VerifierOptions { Enabled = verifierEnabled },
             }),
+            Options.Create(new TeamRulesOptions { TeamRulesPath = RulesPath }),
             NullLoggerFactory.Instance);
 
     private async Task<Guid> StartRunAsync()

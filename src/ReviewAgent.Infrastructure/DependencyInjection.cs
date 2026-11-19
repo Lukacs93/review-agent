@@ -1,3 +1,4 @@
+using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -15,7 +16,9 @@ using ReviewAgent.Infrastructure.Persistence.Errors;
 using ReviewAgent.Infrastructure.Persistence.Reviews;
 using ReviewAgent.Infrastructure.SourceControl;
 using ReviewAgent.Infrastructure.SourceControl.GitHub;
+using ReviewAgent.Infrastructure.SourceControl.GitHub.Errors;
 using ReviewAgent.Infrastructure.SourceControl.Saved;
+using ReviewAgent.Infrastructure.Storage;
 
 namespace ReviewAgent.Infrastructure;
 
@@ -28,11 +31,15 @@ public static class DependencyInjection
     /// <summary>The name of the connection string in the configuration: <c>ConnectionStrings:ReviewAgent</c>.</summary>
     public const string ConnectionStringName = "ReviewAgent";
 
+    // SQLite's name for a database kept in memory instead of a file.
+    private const string InMemoryDataSource = ":memory:";
+
     /// <summary>
-    /// Everything the Infrastructure layer provides: the database, the pull request sources and the review agent.
+    /// Everything the API needs from the Infrastructure layer: the database, the pull request sources, the review
+    /// publishers and the review agent.
     /// </summary>
     public static IServiceCollection AddInfrastructure(this IServiceCollection services) =>
-        services.AddPersistence().AddSourceControl().AddReviewAgent();
+        services.AddPersistence().AddSourceControl().AddReviewPublishing().AddReviewAgent();
 
     /// <summary>The event store: the EF Core context and the review run repository.</summary>
     public static IServiceCollection AddPersistence(this IServiceCollection services)
@@ -41,13 +48,15 @@ public static class DependencyInjection
 
         // The connection string is read when a context is first created, not here, so a value configured after
         // this registration still applies.
+        services.AddStorage();
+
         services.AddDbContext<ReviewAgentDbContext>((serviceProvider, options) =>
         {
             var connectionString = serviceProvider.GetRequiredService<IConfiguration>()
                 .GetConnectionString(ConnectionStringName)
                 ?? throw new InvalidOperationException(DatabaseErrors.ConnectionStringMissing(ConnectionStringName));
 
-            options.UseSqlite(connectionString);
+            options.UseSqlite(InDataDirectory(connectionString, serviceProvider));
         });
 
         services.AddScoped<IReviewRunRepository, EfReviewRunRepository>();
@@ -56,8 +65,8 @@ public static class DependencyInjection
     }
 
     /// <summary>
-    /// The pull request sources and review publishers: saved to disk and GitHub. The configuration decides which
-    /// ones <see cref="IPullRequestSource"/> and <see cref="IReviewPublisher"/> resolve to.
+    /// The pull request sources, saved to disk and GitHub, and where the team keeps its rules. The configuration
+    /// decides which source <see cref="IPullRequestSource"/> resolves to. Read-only: the MCP server uses only this.
     /// </summary>
     public static IServiceCollection AddSourceControl(this IServiceCollection services)
     {
@@ -70,35 +79,28 @@ public static class DependencyInjection
             .ValidateDataAnnotations()
             .ValidateOnStart();
 
-        // Singletons: they keep no state but the directory, and read or write the files on every call, so one
-        // instance can serve the whole application, from any thread.
+        // The "PullRequests:TeamRulesPath" setting, bound and checked the same way.
+        services.AddOptions<TeamRulesOptions>()
+            .BindConfiguration(TeamRulesOptions.SectionName)
+            .ValidateDataAnnotations()
+            .ValidateOnStart();
+
+        // A singleton: it keeps no state but the directory, and reads the files on every call, so one instance can
+        // serve the whole application, from any thread.
         services.AddSingleton(serviceProvider =>
         {
             var options = serviceProvider.GetRequiredService<IOptions<PullRequestSourceOptions>>().Value;
             return new SavedPullRequestSource(Path.GetFullPath(options.SavedDirectory, AppContext.BaseDirectory));
         });
-        services.AddSingleton(serviceProvider =>
-        {
-            var options = serviceProvider.GetRequiredService<IOptions<PullRequestSourceOptions>>().Value;
-            return new SavedReviewPublisher(Path.GetFullPath(options.SavedDirectory, AppContext.BaseDirectory));
-        });
 
         // The standard resilience handler retries transient failures (5xx, 408, 429) with backoff, honours
-        // Retry-After, and adds timeouts and a circuit breaker.
+        // Retry-After, and adds timeouts and a circuit breaker. Reading needs only the read token.
         services.AddHttpClient<GitHubPullRequestSource>((serviceProvider, client) =>
-                GitHubPullRequestSource.ConfigureClient(
-                    client,
-                    serviceProvider.GetRequiredService<IOptions<PullRequestSourceOptions>>().Value.GitHub))
+            {
+                var github = serviceProvider.GetRequiredService<IOptions<PullRequestSourceOptions>>().Value.GitHub;
+                GitHubPullRequestSource.ConfigureClient(client, github.ApiUrl, github.ReadToken);
+            })
             .AddStandardResilienceHandler();
-
-        // The same client for publishing, except that a request that changes something is not retried: a review that
-        // timed out may still have been created. The next publishing checks the pull request for it first.
-        services.AddHttpClient<GitHubReviewPublisher>((serviceProvider, client) =>
-                GitHubPullRequestSource.ConfigureClient(
-                    client,
-                    serviceProvider.GetRequiredService<IOptions<PullRequestSourceOptions>>().Value.GitHub))
-            .AddStandardResilienceHandler()
-            .Configure(resilience => resilience.Retry.DisableForUnsafeHttpMethods());
 
         // The rest of the application only sees IPullRequestSource; the configuration decides which one it gets.
         // Transient, because the GitHub classes are typed HTTP clients, which AddHttpClient registers as transient:
@@ -110,6 +112,47 @@ public static class DependencyInjection
                 PullRequestSourceKind.GitHub => serviceProvider.GetRequiredService<GitHubPullRequestSource>(),
                 _ => serviceProvider.GetRequiredService<SavedPullRequestSource>(),
             });
+
+        return services;
+    }
+
+    /// <summary>
+    /// The review publishers: to GitHub, or to the data directory for saved pull requests. The same
+    /// <c>PullRequests:Source</c> setting as the sources' decides which one <see cref="IReviewPublisher"/>
+    /// resolves to, so call it after <see cref="AddSourceControl"/>. Only the API publishes.
+    /// </summary>
+    public static IServiceCollection AddReviewPublishing(this IServiceCollection services)
+    {
+        ArgumentNullException.ThrowIfNull(services);
+
+        services.AddStorage();
+
+        // Publishing to GitHub needs the write token, so its absence stops the application at startup instead of
+        // failing the first publishing. Checked here, not with the other settings, because the MCP server reads the
+        // same settings and never gets the write token.
+        services.AddOptions<PullRequestSourceOptions>()
+            .Validate(
+                options => options.Source != PullRequestSourceKind.GitHub
+                    || !string.IsNullOrWhiteSpace(options.GitHub.WriteToken),
+                GitHubErrors.WriteTokenRequired)
+            .ValidateOnStart();
+
+        // A singleton for the same reason as the saved source. It writes into the data directory, never next to the
+        // saved pull requests, which are copied into the application's output folder by the build.
+        services.AddSingleton(serviceProvider => new SavedReviewPublisher(
+            Path.Combine(DataDirectoryPath.Resolve(serviceProvider), SavedReviewPublisher.DirectoryName)));
+
+        // The source's client, but with the write token, and a request that changes something is not retried: a
+        // review that timed out may still have been created. The next publishing checks the pull request for it
+        // first.
+        services.AddHttpClient<GitHubReviewPublisher>((serviceProvider, client) =>
+            {
+                var github = serviceProvider.GetRequiredService<IOptions<PullRequestSourceOptions>>().Value.GitHub;
+                GitHubPullRequestSource.ConfigureClient(client, github.ApiUrl, github.WriteToken);
+            })
+            .AddStandardResilienceHandler()
+            .Configure(resilience => resilience.Retry.DisableForUnsafeHttpMethods());
+
         // Transient for the same reason as IPullRequestSource.
         services.AddTransient<IReviewPublisher>(serviceProvider =>
             serviceProvider.GetRequiredService<IOptions<PullRequestSourceOptions>>().Value.Source switch
@@ -162,5 +205,33 @@ public static class DependencyInjection
         services.AddScoped<IReviewAgent, ReviewAgentRunner>();
 
         return services;
+    }
+
+    /// <summary>The "Storage" section of the configuration, bound and checked at startup.</summary>
+    // Both the database and the publishers need it; registering it twice only binds the same values twice.
+    private static void AddStorage(this IServiceCollection services) =>
+        services.AddOptions<StorageOptions>()
+            .BindConfiguration(StorageOptions.SectionName)
+            .ValidateDataAnnotations()
+            .ValidateOnStart();
+
+    /// <summary>
+    /// Moves a relative SQLite database file into the data directory, so it is in the same place wherever the
+    /// application was started from. A full path, or an in-memory database, is left as it is.
+    /// </summary>
+    private static string InDataDirectory(string connectionString, IServiceProvider serviceProvider)
+    {
+        // The SQLite driver's own builder reads and writes the connection string.
+        var connection = new SqliteConnectionStringBuilder(connectionString);
+        var file = connection.DataSource;
+        var isRelativeFile = !string.IsNullOrEmpty(file)
+            && !string.Equals(file, InMemoryDataSource, StringComparison.Ordinal)
+            && !Path.IsPathRooted(file);
+        if (isRelativeFile)
+        {
+            connection.DataSource = Path.Combine(DataDirectoryPath.Resolve(serviceProvider), file);
+        }
+
+        return connection.ToString();
     }
 }
