@@ -15,6 +15,7 @@ using ReviewAgent.Infrastructure.Persistence.Errors;
 using ReviewAgent.Infrastructure.Persistence.Reviews;
 using ReviewAgent.Infrastructure.SourceControl;
 using ReviewAgent.Infrastructure.SourceControl.GitHub;
+using ReviewAgent.Infrastructure.SourceControl.GitHub.Errors;
 using ReviewAgent.Infrastructure.SourceControl.Saved;
 
 namespace ReviewAgent.Infrastructure;
@@ -29,10 +30,11 @@ public static class DependencyInjection
     public const string ConnectionStringName = "ReviewAgent";
 
     /// <summary>
-    /// Everything the Infrastructure layer provides: the database, the pull request sources and the review agent.
+    /// Everything the API needs from the Infrastructure layer: the database, the pull request sources, the review
+    /// publishers and the review agent.
     /// </summary>
     public static IServiceCollection AddInfrastructure(this IServiceCollection services) =>
-        services.AddPersistence().AddSourceControl().AddReviewAgent();
+        services.AddPersistence().AddSourceControl().AddReviewPublishing().AddReviewAgent();
 
     /// <summary>The event store: the EF Core context and the review run repository.</summary>
     public static IServiceCollection AddPersistence(this IServiceCollection services)
@@ -56,8 +58,8 @@ public static class DependencyInjection
     }
 
     /// <summary>
-    /// The pull request sources and review publishers: saved to disk and GitHub. The configuration decides which
-    /// ones <see cref="IPullRequestSource"/> and <see cref="IReviewPublisher"/> resolve to.
+    /// The pull request sources, saved to disk and GitHub, and where the team keeps its rules. The configuration
+    /// decides which source <see cref="IPullRequestSource"/> resolves to. Read-only: the MCP server uses only this.
     /// </summary>
     public static IServiceCollection AddSourceControl(this IServiceCollection services)
     {
@@ -76,35 +78,22 @@ public static class DependencyInjection
             .ValidateDataAnnotations()
             .ValidateOnStart();
 
-        // Singletons: they keep no state but the directory, and read or write the files on every call, so one
-        // instance can serve the whole application, from any thread.
+        // A singleton: it keeps no state but the directory, and reads the files on every call, so one instance can
+        // serve the whole application, from any thread.
         services.AddSingleton(serviceProvider =>
         {
             var options = serviceProvider.GetRequiredService<IOptions<PullRequestSourceOptions>>().Value;
             return new SavedPullRequestSource(Path.GetFullPath(options.SavedDirectory, AppContext.BaseDirectory));
         });
-        services.AddSingleton(serviceProvider =>
-        {
-            var options = serviceProvider.GetRequiredService<IOptions<PullRequestSourceOptions>>().Value;
-            return new SavedReviewPublisher(Path.GetFullPath(options.SavedDirectory, AppContext.BaseDirectory));
-        });
 
         // The standard resilience handler retries transient failures (5xx, 408, 429) with backoff, honours
-        // Retry-After, and adds timeouts and a circuit breaker.
+        // Retry-After, and adds timeouts and a circuit breaker. Reading needs only the read token.
         services.AddHttpClient<GitHubPullRequestSource>((serviceProvider, client) =>
-                GitHubPullRequestSource.ConfigureClient(
-                    client,
-                    serviceProvider.GetRequiredService<IOptions<PullRequestSourceOptions>>().Value.GitHub))
+            {
+                var github = serviceProvider.GetRequiredService<IOptions<PullRequestSourceOptions>>().Value.GitHub;
+                GitHubPullRequestSource.ConfigureClient(client, github.ApiUrl, github.ReadToken);
+            })
             .AddStandardResilienceHandler();
-
-        // The same client for publishing, except that a request that changes something is not retried: a review that
-        // timed out may still have been created. The next publishing checks the pull request for it first.
-        services.AddHttpClient<GitHubReviewPublisher>((serviceProvider, client) =>
-                GitHubPullRequestSource.ConfigureClient(
-                    client,
-                    serviceProvider.GetRequiredService<IOptions<PullRequestSourceOptions>>().Value.GitHub))
-            .AddStandardResilienceHandler()
-            .Configure(resilience => resilience.Retry.DisableForUnsafeHttpMethods());
 
         // The rest of the application only sees IPullRequestSource; the configuration decides which one it gets.
         // Transient, because the GitHub classes are typed HTTP clients, which AddHttpClient registers as transient:
@@ -116,6 +105,47 @@ public static class DependencyInjection
                 PullRequestSourceKind.GitHub => serviceProvider.GetRequiredService<GitHubPullRequestSource>(),
                 _ => serviceProvider.GetRequiredService<SavedPullRequestSource>(),
             });
+
+        return services;
+    }
+
+    /// <summary>
+    /// The review publishers: to GitHub, or to disk for saved pull requests. The same
+    /// <c>PullRequests:Source</c> setting as the sources' decides which one <see cref="IReviewPublisher"/>
+    /// resolves to, so call it after <see cref="AddSourceControl"/>. Only the API publishes.
+    /// </summary>
+    public static IServiceCollection AddReviewPublishing(this IServiceCollection services)
+    {
+        ArgumentNullException.ThrowIfNull(services);
+
+        // Publishing to GitHub needs the write token, so its absence stops the application at startup instead of
+        // failing the first publishing. Checked here, not with the other settings, because the MCP server reads the
+        // same settings and never gets the write token.
+        services.AddOptions<PullRequestSourceOptions>()
+            .Validate(
+                options => options.Source != PullRequestSourceKind.GitHub
+                    || !string.IsNullOrWhiteSpace(options.GitHub.WriteToken),
+                GitHubErrors.WriteTokenRequired)
+            .ValidateOnStart();
+
+        // A singleton for the same reason as the saved source.
+        services.AddSingleton(serviceProvider =>
+        {
+            var options = serviceProvider.GetRequiredService<IOptions<PullRequestSourceOptions>>().Value;
+            return new SavedReviewPublisher(Path.GetFullPath(options.SavedDirectory, AppContext.BaseDirectory));
+        });
+
+        // The source's client, but with the write token, and a request that changes something is not retried: a
+        // review that timed out may still have been created. The next publishing checks the pull request for it
+        // first.
+        services.AddHttpClient<GitHubReviewPublisher>((serviceProvider, client) =>
+            {
+                var github = serviceProvider.GetRequiredService<IOptions<PullRequestSourceOptions>>().Value.GitHub;
+                GitHubPullRequestSource.ConfigureClient(client, github.ApiUrl, github.WriteToken);
+            })
+            .AddStandardResilienceHandler()
+            .Configure(resilience => resilience.Retry.DisableForUnsafeHttpMethods());
+
         // Transient for the same reason as IPullRequestSource.
         services.AddTransient<IReviewPublisher>(serviceProvider =>
             serviceProvider.GetRequiredService<IOptions<PullRequestSourceOptions>>().Value.Source switch
@@ -169,4 +199,5 @@ public static class DependencyInjection
 
         return services;
     }
+
 }

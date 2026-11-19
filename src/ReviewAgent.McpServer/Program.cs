@@ -5,6 +5,8 @@ using ReviewAgent.McpServer.Tools;
 var builder = WebApplication.CreateBuilder(args);
 
 builder.Services.AddHttpContextAccessor();
+// Only the read-only part of the Infrastructure layer: the pull request sources and the team rules setting. The
+// server never publishes, so it gets neither the publishers nor the write token.
 builder.Services.AddSourceControl();
 builder.Services.AddScoped<ReviewedPullRequest>();
 builder.Services.AddHealthChecks();

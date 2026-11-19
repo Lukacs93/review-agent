@@ -25,23 +25,26 @@ internal sealed class GitHubPullRequestSource(HttpClient httpClient) : IPullRequ
     // GitHub rejects requests without a User-Agent.
     private const string UserAgentName = "review-agent";
 
-    /// <summary>Sets up the client the HTTP client factory creates for this source.</summary>
-    public static void ConfigureClient(HttpClient client, GitHubOptions options)
+    /// <summary>
+    /// Sets up a client the HTTP client factory creates for GitHub: the address, the headers and the token. The
+    /// source gets the read token, the publisher the write token.
+    /// </summary>
+    public static void ConfigureClient(HttpClient client, Uri apiUrl, string? token)
     {
         ArgumentNullException.ThrowIfNull(client);
-        ArgumentNullException.ThrowIfNull(options);
+        ArgumentNullException.ThrowIfNull(apiUrl);
 
         // Without the trailing slash a relative "repos/..." would replace the last part of the address.
-        var apiUrl = options.ApiUrl.ToString();
-        client.BaseAddress = new Uri(apiUrl.EndsWith('/') ? apiUrl : apiUrl + "/");
+        var address = apiUrl.ToString();
+        client.BaseAddress = new Uri(address.EndsWith('/') ? address : address + "/");
 
         client.DefaultRequestHeaders.UserAgent.Add(new ProductInfoHeaderValue(UserAgentName, "1.0"));
         client.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue(JsonMediaType));
         client.DefaultRequestHeaders.Add(ApiVersionHeader, ApiVersion);
 
-        if (!string.IsNullOrWhiteSpace(options.Token))
+        if (!string.IsNullOrWhiteSpace(token))
         {
-            client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", options.Token);
+            client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
         }
     }
 
