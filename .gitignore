@@ -15,6 +15,7 @@ coverage*.xml
 *.suo
 
 # Local data and secrets
+src/ReviewAgent.Api/data/
 *.db
 *.db-shm
 *.db-wal

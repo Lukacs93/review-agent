@@ -8,11 +8,12 @@ namespace ReviewAgent.Infrastructure.SourceControl.Saved;
 /// <summary>
 /// Publishes reviews of saved pull requests to disk, as the request that would create the review on GitHub, so
 /// the whole workflow can be run without GitHub. Layout under the root directory:
-/// <c>{owner}/{repository}/{number}/published-reviews/{run ID}.json</c>.
+/// <c>{owner}/{repository}/{number}/{run ID}.json</c>.
 /// </summary>
 internal sealed class SavedReviewPublisher(string rootDirectory) : IReviewPublisher
 {
-    private const string PublishedReviewsDirectoryName = "published-reviews";
+    /// <summary>The name of the root directory inside the data directory.</summary>
+    public const string DirectoryName = "published-reviews";
 
     private static readonly JsonSerializerOptions _jsonOptions = new(GitHubReviewRequest.JsonOptions)
     {
@@ -59,7 +60,6 @@ internal sealed class SavedReviewPublisher(string rootDirectory) : IReviewPublis
             pullRequest.Owner,
             pullRequest.Repository,
             pullRequest.Number.ToString(CultureInfo.InvariantCulture),
-            PublishedReviewsDirectoryName,
             publication.RunId.ToString("D", CultureInfo.InvariantCulture) + ".json");
     }
 }

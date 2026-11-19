@@ -1,3 +1,4 @@
+using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -17,6 +18,7 @@ using ReviewAgent.Infrastructure.SourceControl;
 using ReviewAgent.Infrastructure.SourceControl.GitHub;
 using ReviewAgent.Infrastructure.SourceControl.GitHub.Errors;
 using ReviewAgent.Infrastructure.SourceControl.Saved;
+using ReviewAgent.Infrastructure.Storage;
 
 namespace ReviewAgent.Infrastructure;
 
@@ -28,6 +30,9 @@ public static class DependencyInjection
 {
     /// <summary>The name of the connection string in the configuration: <c>ConnectionStrings:ReviewAgent</c>.</summary>
     public const string ConnectionStringName = "ReviewAgent";
+
+    // SQLite's name for a database kept in memory instead of a file.
+    private const string InMemoryDataSource = ":memory:";
 
     /// <summary>
     /// Everything the API needs from the Infrastructure layer: the database, the pull request sources, the review
@@ -43,13 +48,15 @@ public static class DependencyInjection
 
         // The connection string is read when a context is first created, not here, so a value configured after
         // this registration still applies.
+        services.AddStorage();
+
         services.AddDbContext<ReviewAgentDbContext>((serviceProvider, options) =>
         {
             var connectionString = serviceProvider.GetRequiredService<IConfiguration>()
                 .GetConnectionString(ConnectionStringName)
                 ?? throw new InvalidOperationException(DatabaseErrors.ConnectionStringMissing(ConnectionStringName));
 
-            options.UseSqlite(connectionString);
+            options.UseSqlite(InDataDirectory(connectionString, serviceProvider));
         });
 
         services.AddScoped<IReviewRunRepository, EfReviewRunRepository>();
@@ -110,13 +117,15 @@ public static class DependencyInjection
     }
 
     /// <summary>
-    /// The review publishers: to GitHub, or to disk for saved pull requests. The same
+    /// The review publishers: to GitHub, or to the data directory for saved pull requests. The same
     /// <c>PullRequests:Source</c> setting as the sources' decides which one <see cref="IReviewPublisher"/>
     /// resolves to, so call it after <see cref="AddSourceControl"/>. Only the API publishes.
     /// </summary>
     public static IServiceCollection AddReviewPublishing(this IServiceCollection services)
     {
         ArgumentNullException.ThrowIfNull(services);
+
+        services.AddStorage();
 
         // Publishing to GitHub needs the write token, so its absence stops the application at startup instead of
         // failing the first publishing. Checked here, not with the other settings, because the MCP server reads the
@@ -128,12 +137,10 @@ public static class DependencyInjection
                 GitHubErrors.WriteTokenRequired)
             .ValidateOnStart();
 
-        // A singleton for the same reason as the saved source.
-        services.AddSingleton(serviceProvider =>
-        {
-            var options = serviceProvider.GetRequiredService<IOptions<PullRequestSourceOptions>>().Value;
-            return new SavedReviewPublisher(Path.GetFullPath(options.SavedDirectory, AppContext.BaseDirectory));
-        });
+        // A singleton for the same reason as the saved source. It writes into the data directory, never next to the
+        // saved pull requests, which are copied into the application's output folder by the build.
+        services.AddSingleton(serviceProvider => new SavedReviewPublisher(
+            Path.Combine(DataDirectoryPath.Resolve(serviceProvider), SavedReviewPublisher.DirectoryName)));
 
         // The source's client, but with the write token, and a request that changes something is not retried: a
         // review that timed out may still have been created. The next publishing checks the pull request for it
@@ -200,4 +207,31 @@ public static class DependencyInjection
         return services;
     }
 
+    /// <summary>The "Storage" section of the configuration, bound and checked at startup.</summary>
+    // Both the database and the publishers need it; registering it twice only binds the same values twice.
+    private static void AddStorage(this IServiceCollection services) =>
+        services.AddOptions<StorageOptions>()
+            .BindConfiguration(StorageOptions.SectionName)
+            .ValidateDataAnnotations()
+            .ValidateOnStart();
+
+    /// <summary>
+    /// Moves a relative SQLite database file into the data directory, so it is in the same place wherever the
+    /// application was started from. A full path, or an in-memory database, is left as it is.
+    /// </summary>
+    private static string InDataDirectory(string connectionString, IServiceProvider serviceProvider)
+    {
+        // The SQLite driver's own builder reads and writes the connection string.
+        var connection = new SqliteConnectionStringBuilder(connectionString);
+        var file = connection.DataSource;
+        var isRelativeFile = !string.IsNullOrEmpty(file)
+            && !string.Equals(file, InMemoryDataSource, StringComparison.Ordinal)
+            && !Path.IsPathRooted(file);
+        if (isRelativeFile)
+        {
+            connection.DataSource = Path.Combine(DataDirectoryPath.Resolve(serviceProvider), file);
+        }
+
+        return connection.ToString();
+    }
 }
