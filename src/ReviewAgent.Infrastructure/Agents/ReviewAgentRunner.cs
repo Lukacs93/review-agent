@@ -29,6 +29,7 @@ internal sealed partial class ReviewAgentRunner(
     IAgentChatClientFactory chatClientFactory,
     ReviewAgentCommands commands,
     IOptions<AgentOptions> options,
+    IOptions<TeamRulesOptions> teamRules,
     ILoggerFactory loggerFactory) : IReviewAgent
 {
     private readonly ILogger _logger = loggerFactory.CreateLogger<ReviewAgentRunner>();
@@ -89,8 +90,9 @@ internal sealed partial class ReviewAgentRunner(
 
         // Read here too, so propose_comment can check the model's comments against the pull request and the rules.
         var snapshot = await pullRequestSource.GetPullRequestAsync(pullRequest, cancellationToken);
-        var rulesMarkdown = await pullRequestSource.GetFileAsync(pullRequest, settings.TeamRulesPath, cancellationToken)
-            ?? throw new InvalidOperationException(AgentErrors.TeamRulesNotFound(settings.TeamRulesPath));
+        var rulesPath = teamRules.Value.TeamRulesPath;
+        var rulesMarkdown = await pullRequestSource.GetFileAsync(pullRequest, rulesPath, cancellationToken)
+            ?? throw new InvalidOperationException(AgentErrors.TeamRulesNotFound(rulesPath));
         var rules = MarkdownRuleSetParser.Parse(rulesMarkdown);
 
         await using var connection = await toolsConnector.ConnectAsync(pullRequest, cancellationToken);

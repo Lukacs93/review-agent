@@ -14,8 +14,6 @@ internal static class AgentErrors
 
     public const string McpServerUrlRequired = "Agent:McpServerUrl is required: the base address of the MCP server.";
 
-    public const string TeamRulesPathRequired = "Agent:TeamRulesPath is required: where the team keeps its rules.";
-
     public const string MaxToolRoundsOutOfRange = "Agent:MaxToolRounds must be between 1 and 200.";
 
     public const string TimeoutOutOfRange = "Agent:Timeout must be between 10 seconds and 1 hour.";

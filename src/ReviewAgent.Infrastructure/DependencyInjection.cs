@@ -70,6 +70,12 @@ public static class DependencyInjection
             .ValidateDataAnnotations()
             .ValidateOnStart();
 
+        // The "PullRequests:TeamRulesPath" setting, bound and checked the same way.
+        services.AddOptions<TeamRulesOptions>()
+            .BindConfiguration(TeamRulesOptions.SectionName)
+            .ValidateDataAnnotations()
+            .ValidateOnStart();
+
         // Singletons: they keep no state but the directory, and read or write the files on every call, so one
         // instance can serve the whole application, from any thread.
         services.AddSingleton(serviceProvider =>

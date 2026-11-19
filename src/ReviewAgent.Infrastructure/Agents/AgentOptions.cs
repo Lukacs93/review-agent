@@ -33,10 +33,6 @@ internal sealed class AgentOptions : IValidatableObject
     [Required(ErrorMessage = AgentErrors.McpServerUrlRequired)]
     public Uri? McpServerUrl { get; init; }
 
-    /// <summary>Where the team keeps its review rules in the repository, relative to the repository root.</summary>
-    [Required(ErrorMessage = AgentErrors.TeamRulesPathRequired)]
-    public string TeamRulesPath { get; init; } = ".review/rules.md";
-
     /// <summary>How many times the model may ask for tool calls in one review before it is stopped.</summary>
     [Range(1, 200, ErrorMessage = AgentErrors.MaxToolRoundsOutOfRange)]
     public int MaxToolRounds { get; init; } = 40;
