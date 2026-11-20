@@ -34,5 +34,6 @@ internal static class ProposeCommentErrors
     public static string Duplicate(string path, int line, string ruleId) =>
         string.Create(
             CultureInfo.InvariantCulture,
-            $"{Prefix}a comment on line {line} of '{path}' for {ruleId} was already proposed.");
+            $"{Prefix}a comment on line {line} of '{path}' for {ruleId} was already proposed and is saved. "
+            + $"Do not propose it again, on this or another line.");
 }

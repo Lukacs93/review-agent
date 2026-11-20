@@ -1,0 +1,38 @@
+{
+  "title": "Add card payment and the warehouse pick list",
+  "description": "Adds paying an order by card through the payment provider, and a pick list endpoint that tells the warehouse which orders to pick next.",
+  "baseBranch": "main",
+  "headBranch": "feature/payment-and-pick-list",
+  "files": [
+    {
+      "path": "src/Orders.Api/Application/GetPickList.cs",
+      "status": "Added",
+      "patch": "@@ -0,0 +1,19 @@\n+namespace Orders.Api.Application;\n+\n+public sealed record GetPickListQuery;\n+\n+public sealed record PickListEntry(Guid OrderId, Guid CustomerId, DateTimeOffset PlacedAt);\n+\n+/// <summary>Query: the orders the warehouse picks next, in the order it picks them. Never changes state.</summary>\n+public sealed class GetPickListHandler(IOrderRepository orders)\n+{\n+    public async Task<IReadOnlyList<PickListEntry>> HandleAsync(GetPickListQuery query, CancellationToken cancellationToken)\n+    {\n+        var all = await orders.ListAsync(cancellationToken);\n+\n+        return all\n+            .OrderByDescending(order => order.PlacedAt)\n+            .Select(order => new PickListEntry(order.Id, order.CustomerId, order.PlacedAt))\n+            .ToList();\n+    }\n+}"
+    },
+    {
+      "path": "src/Orders.Api/Application/IOrderRepository.cs",
+      "status": "Modified",
+      "patch": "@@ -6,5 +6,6 @@ public interface IOrderRepository\n {\n     Task AddAsync(Order order, CancellationToken cancellationToken);\n     Task<Order?> GetAsync(Guid id, CancellationToken cancellationToken);\n+    Task<IReadOnlyList<Order>> ListAsync(CancellationToken cancellationToken);\n     Task SaveChangesAsync(CancellationToken cancellationToken);\n }"
+    },
+    {
+      "path": "src/Orders.Api/Application/PayOrder.cs",
+      "status": "Added",
+      "patch": "@@ -0,0 +1,34 @@\n+using System.Net.Http.Json;\n+\n+namespace Orders.Api.Application;\n+\n+public sealed record PayOrderCommand(Guid OrderId, string CardNumber, double Total);\n+\n+/// <summary>Command: pay an order by card. Returns the provider's payment ID, or null if the order is unknown.</summary>\n+public sealed class PayOrderHandler(IOrderRepository orders)\n+{\n+    private const string ChargesUrl = \"https://payments.example.com/v1/charges\";\n+\n+    public async Task<string?> HandleAsync(PayOrderCommand command, CancellationToken cancellationToken)\n+    {\n+        var order = await orders.GetAsync(command.OrderId, cancellationToken);\n+        if (order is null)\n+        {\n+            return null;\n+        }\n+\n+        using var http = new HttpClient();\n+        http.DefaultRequestHeaders.Add(\"X-Api-Key\", \"demo-payments-key-7f3a9c\");\n+\n+        var response = await http.PostAsJsonAsync(\n+            ChargesUrl,\n+            new { orderId = order.Id, cardNumber = command.CardNumber, total = command.Total },\n+            cancellationToken);\n+        response.EnsureSuccessStatusCode();\n+\n+        var charge = await response.Content.ReadFromJsonAsync<ChargeResponse>(cancellationToken);\n+        return charge?.Id;\n+    }\n+\n+    private sealed record ChargeResponse(string Id);\n+}"
+    },
+    {
+      "path": "src/Orders.Api/Controllers/OrdersController.cs",
+      "status": "Modified",
+      "patch": "@@ -8,7 +8,9 @@ namespace Orders.Api.Controllers;\n public sealed class OrdersController(\n     PlaceOrderHandler placeOrder,\n     GetOrderHandler getOrder,\n-    CancelOrderHandler cancelOrder) : ControllerBase\n+    CancelOrderHandler cancelOrder,\n+    PayOrderHandler payOrder,\n+    GetPickListHandler getPickList) : ControllerBase\n {\n     [HttpPost]\n     public async Task<IActionResult> Place(PlaceOrderCommand command, CancellationToken cancellationToken)\n@@ -30,4 +32,15 @@ public sealed class OrdersController(\n         var found = await cancelOrder.HandleAsync(new CancelOrderCommand(id), cancellationToken);\n         return found ? NoContent() : NotFound();\n     }\n+\n+    [HttpPost(\"{id:guid}/pay\")]\n+    public async Task<IActionResult> Pay(Guid id, PayOrderCommand command, CancellationToken cancellationToken)\n+    {\n+        var paymentId = await payOrder.HandleAsync(command with { OrderId = id }, cancellationToken);\n+        return paymentId is null ? NotFound() : Ok(new { paymentId });\n+    }\n+\n+    [HttpGet(\"pick-list\")]\n+    public async Task<IActionResult> PickList(CancellationToken cancellationToken) =>\n+        Ok(await getPickList.HandleAsync(new GetPickListQuery(), cancellationToken));\n }"
+    },
+    {
+      "path": "src/Orders.Api/Infrastructure/OrderRepository.cs",
+      "status": "Modified",
+      "patch": "@@ -1,3 +1,4 @@\n+using Microsoft.EntityFrameworkCore;\n using Orders.Api.Application;\n using Orders.Api.Domain;\n \n@@ -11,6 +12,9 @@ public sealed class OrderRepository(OrdersDbContext db) : IOrderRepository\n     public async Task<Order?> GetAsync(Guid id, CancellationToken cancellationToken) =>\n         await db.Orders.FindAsync([id], cancellationToken);\n \n+    public async Task<IReadOnlyList<Order>> ListAsync(CancellationToken cancellationToken) =>\n+        await db.Orders.AsNoTracking().ToListAsync(cancellationToken);\n+\n     public Task SaveChangesAsync(CancellationToken cancellationToken) =>\n         db.SaveChangesAsync(cancellationToken);\n }"
+    },
+    {
+      "path": "src/Orders.Api/Program.cs",
+      "status": "Modified",
+      "patch": "@@ -13,6 +13,8 @@ builder.Services.AddScoped<IOrderRepository, OrderRepository>();\n builder.Services.AddScoped<PlaceOrderHandler>();\n builder.Services.AddScoped<GetOrderHandler>();\n builder.Services.AddScoped<CancelOrderHandler>();\n+builder.Services.AddScoped<PayOrderHandler>();\n+builder.Services.AddScoped<GetPickListHandler>();\n builder.Services.AddSingleton(TimeProvider.System);\n builder.Services.AddSingleton<ICustomerTiers, CustomerTiers>();\n "
+    }
+  ]
+}
