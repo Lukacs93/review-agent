@@ -13,6 +13,19 @@ public sealed record ReviewStarted(ReviewRunId RunId, DateTimeOffset OccurredAt,
 public sealed record ToolCalled(ReviewRunId RunId, DateTimeOffset OccurredAt, string ToolName, string Arguments)
     : ReviewEvent(RunId, OccurredAt);
 
+/// <summary>
+/// The agent called the model once: how long the call took and how many tokens it used. A token count is
+/// <see langword="null"/> when the model's API did not report it.
+/// </summary>
+public sealed record ModelCalled(
+    ReviewRunId RunId,
+    DateTimeOffset OccurredAt,
+    string AgentName,
+    TimeSpan Duration,
+    long? InputTokens,
+    long? OutputTokens)
+    : ReviewEvent(RunId, OccurredAt);
+
 /// <summary>The agent proposed a review comment.</summary>
 public sealed record CommentProposed(
     ReviewRunId RunId,

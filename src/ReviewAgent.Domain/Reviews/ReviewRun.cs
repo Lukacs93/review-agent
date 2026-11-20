@@ -28,6 +28,23 @@ public sealed class ReviewRun
 
     public int ToolCallCount { get; private set; }
 
+    /// <summary>How many times the agents called the model.</summary>
+    public int ModelCallCount { get; private set; }
+
+    /// <summary>The time the model calls took together.</summary>
+    public TimeSpan ModelTime { get; private set; }
+
+    /// <summary>
+    /// The input tokens of the model calls together; <see langword="null"/> once a call's count was not reported.
+    /// </summary>
+    // Unknown rather than too low: a total that silently left out a call would mislead the evaluation.
+    public long? InputTokenCount { get; private set; } = 0;
+
+    /// <summary>
+    /// The output tokens of the model calls together; <see langword="null"/> once a call's count was not reported.
+    /// </summary>
+    public long? OutputTokenCount { get; private set; } = 0;
+
     public string? Summary { get; private set; }
 
     public string? FailureReason { get; private set; }
@@ -90,6 +107,30 @@ public sealed class ReviewRun
         EnsureNotBlank(toolName, ReviewRunErrors.ToolNameRequired);
 
         Raise(new ToolCalled(Id, now, toolName.Trim(), arguments ?? string.Empty));
+    }
+
+    /// <summary>Records one call of an agent to the model, with its time and token counts.</summary>
+    public void RecordModelCall(
+        string agentName,
+        TimeSpan duration,
+        long? inputTokens,
+        long? outputTokens,
+        DateTimeOffset now)
+    {
+        EnsureStatus(ReviewStatus.Running, ReviewRunErrors.ModelCallWhenNotRunning);
+        EnsureNotBlank(agentName, ReviewRunErrors.AgentNameRequired);
+
+        if (duration < TimeSpan.Zero)
+        {
+            throw new DomainException(ReviewRunErrors.NegativeDuration);
+        }
+
+        if (inputTokens < 0 || outputTokens < 0)
+        {
+            throw new DomainException(ReviewRunErrors.NegativeTokens);
+        }
+
+        Raise(new ModelCalled(Id, now, agentName.Trim(), duration, inputTokens, outputTokens));
     }
 
     public CommentId ProposeComment(
@@ -262,6 +303,14 @@ public sealed class ReviewRun
 
             case ToolCalled:
                 ToolCallCount++;
+                break;
+
+            case ModelCalled modelCalled:
+                ModelCallCount++;
+                ModelTime += modelCalled.Duration;
+                // Adding null gives null: once a count is unknown, the total stays unknown.
+                InputTokenCount += modelCalled.InputTokens;
+                OutputTokenCount += modelCalled.OutputTokens;
                 break;
 
             case CommentProposed proposed:

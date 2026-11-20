@@ -7,6 +7,7 @@ public static class ReviewRunErrors
     public const string EmptyHistory = "A review run needs at least one event.";
     public const string InvalidFirstEvent = "A review run must start with exactly one ReviewStarted event.";
     public const string ToolCallWhenNotRunning = "Tool calls can only be recorded while the review is running.";
+    public const string ModelCallWhenNotRunning = "Model calls can only be recorded while the review is running.";
     public const string ProposeWhenNotRunning = "Comments can only be proposed while the review is running.";
     public const string FinishWhenNotRunning = "Only a running review can be finished.";
     public const string FailWhenNotRunning = "Only a running review can fail.";
@@ -15,11 +16,16 @@ public static class ReviewRunErrors
 
     // Required values
     public const string ToolNameRequired = "Tool name is required.";
+    public const string AgentNameRequired = "Agent name is required.";
     public const string CommentBodyRequired = "Comment body is required.";
     public const string SummaryRequired = "Summary is required.";
     public const string FailureReasonRequired = "Failure reason is required.";
     public const string EditedBodyRequired = "Edited comment body is required.";
     public const string RejectionReasonRequired = "Rejection reason is required.";
+
+    // Measurements
+    public const string NegativeDuration = "A model call cannot take negative time.";
+    public const string NegativeTokens = "A token count cannot be negative.";
 
     // Decisions
     public const string DecideWhenNotFinished = "Comments can only be decided after the review has finished.";
