@@ -16,6 +16,7 @@ using ReviewAgent.Application.Reviews.Commands.RequestPublishing;
 using ReviewAgent.Application.Reviews.Commands.ResumeInterruptedPublishing;
 using ReviewAgent.Application.Reviews.Commands.StartReview;
 using ReviewAgent.Application.Reviews.Queries.GetReviewRun;
+using ReviewAgent.Application.Reviews.Queries.GetRunLog;
 using ReviewAgent.Application.SourceControl;
 using ReviewAgent.Application.SourceControl.Queries.GetPullRequest;
 
@@ -53,6 +54,7 @@ public static class DependencyInjection
             ResumeInterruptedPublishingCommandHandler>();
 
         services.AddScoped<IQueryHandler<GetReviewRunQuery, ReviewRunDetails?>, GetReviewRunQueryHandler>();
+        services.AddScoped<IQueryHandler<GetRunLogQuery, IReadOnlyList<RunLogEntryDetails>?>, GetRunLogQueryHandler>();
         services.AddScoped<IQueryHandler<GetPullRequestQuery, PullRequestSnapshot>, GetPullRequestQueryHandler>();
 
         return services;

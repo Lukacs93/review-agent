@@ -6,6 +6,7 @@ using ReviewAgent.Application.Reviews.Commands.EditComment;
 using ReviewAgent.Application.Reviews.Commands.RequestPublishing;
 using ReviewAgent.Application.Reviews.Commands.StartReview;
 using ReviewAgent.Application.Reviews.Queries.GetReviewRun;
+using ReviewAgent.Application.Reviews.Queries.GetRunLog;
 
 namespace ReviewAgent.Api.Reviews;
 
@@ -21,6 +22,7 @@ internal static class ReviewEndpoints
 
         reviews.MapPost(ReviewRoutes.StartReview, StartReviewAsync);
         reviews.MapGet(ReviewRoutes.GetReviewRun, GetReviewRunAsync).WithName(ReviewRoutes.GetReviewRunName);
+        reviews.MapGet(ReviewRoutes.GetRunLog, GetRunLogAsync);
         reviews.MapPost(ReviewRoutes.RequestPublishing, RequestPublishingAsync);
 
         var comment = reviews.MapGroup(ReviewRoutes.Comment);
@@ -56,6 +58,17 @@ internal static class ReviewEndpoints
         var details = await handler.HandleAsync(new GetReviewRunQuery(runId), cancellationToken);
 
         return details is null ? TypedResults.NotFound() : TypedResults.Ok(details);
+    }
+
+    // The log lines written while the run was running, oldest first; an empty list when there are none.
+    private static async Task<Results<Ok<IReadOnlyList<RunLogEntryDetails>>, NotFound>> GetRunLogAsync(
+        Guid runId,
+        IQueryHandler<GetRunLogQuery, IReadOnlyList<RunLogEntryDetails>?> handler,
+        CancellationToken cancellationToken)
+    {
+        var lines = await handler.HandleAsync(new GetRunLogQuery(runId), cancellationToken);
+
+        return lines is null ? TypedResults.NotFound() : TypedResults.Ok(lines);
     }
 
     // 202 Accepted: publishing runs in the background; the run shows when it is done, or why it failed.

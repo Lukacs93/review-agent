@@ -11,6 +11,7 @@ using ReviewAgent.Domain.Reviews;
 using ReviewAgent.Infrastructure.Agents.Errors;
 using ReviewAgent.Infrastructure.Agents.LanguageModel;
 using ReviewAgent.Infrastructure.Agents.Tools;
+using ReviewAgent.Infrastructure.Logging;
 using ReviewAgent.Infrastructure.Rules;
 
 namespace ReviewAgent.Infrastructure.Agents;
@@ -34,7 +35,7 @@ internal sealed partial class ReviewAgentRunner(
 {
     // A log scope, defined once like the log messages below, so the template is not parsed on every run.
     private static readonly Func<ILogger, Guid, IDisposable?> _reviewRunScope =
-        LoggerMessage.DefineScope<Guid>("Review run {RunId}");
+        LoggerMessage.DefineScope<Guid>("Review run {" + RunLogProvider.RunIdKey + "}");
 
     private readonly ILogger _logger = loggerFactory.CreateLogger<ReviewAgentRunner>();
 
