@@ -32,6 +32,10 @@ internal sealed partial class ReviewAgentRunner(
     IOptions<TeamRulesOptions> teamRules,
     ILoggerFactory loggerFactory) : IReviewAgent
 {
+    // A log scope, defined once like the log messages below, so the template is not parsed on every run.
+    private static readonly Func<ILogger, Guid, IDisposable?> _reviewRunScope =
+        LoggerMessage.DefineScope<Guid>("Review run {RunId}");
+
     private readonly ILogger _logger = loggerFactory.CreateLogger<ReviewAgentRunner>();
 
     public async Task ReviewAsync(Guid runId, CancellationToken cancellationToken)
@@ -42,6 +46,11 @@ internal sealed partial class ReviewAgentRunner(
             // Already reviewed, for example because it was queued twice.
             return;
         }
+
+        // Every span and log line of this run carries its ID, so its trace and logs can be found by it.
+        using var activity = AgentTelemetry.Source.StartActivity(AgentTelemetry.ReviewActivityName);
+        activity?.SetTag(AgentTelemetry.RunIdTag, runId);
+        using var logScope = _reviewRunScope(_logger, runId);
 
         var timeout = options.Value.Timeout;
         using var timeoutSource = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
@@ -98,12 +107,17 @@ internal sealed partial class ReviewAgentRunner(
         await using var connection = await toolsConnector.ConnectAsync(pullRequest, cancellationToken);
 
         // The function-invoking client runs the tools the model asks for and sends back the results, until the
-        // model answers without asking for more; the agents reuse it instead of adding their own.
+        // model answers without asking for more; the agents reuse it instead of adding their own. The OpenTelemetry
+        // client inside it traces and measures each model call (time, tokens) on its own.
         using var chatClient = chatClientFactory.Create()
             .AsBuilder()
             .UseFunctionInvocation(
                 loggerFactory,
                 functionInvoker => functionInvoker.MaximumIterationsPerRequest = settings.MaxToolRounds)
+            .UseOpenTelemetry(
+                loggerFactory,
+                DependencyInjection.TelemetrySourceName,
+                telemetry => telemetry.EnableSensitiveData = settings.TelemetryIncludesContent)
             .Build();
 
         var proposeComment = new ProposeCommentTool(runId, snapshot, rules, commands.ProposeComment);

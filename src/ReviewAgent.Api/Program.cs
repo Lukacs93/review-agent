@@ -6,8 +6,12 @@ using ReviewAgent.Api.PullRequests;
 using ReviewAgent.Api.Reviews;
 using ReviewAgent.Application;
 using ReviewAgent.Infrastructure;
+using ReviewAgent.ServiceDefaults;
 
 var builder = WebApplication.CreateBuilder(args);
+
+// The agents' traces and metrics (model calls, tool calls, review runs) come from the Infrastructure layer.
+builder.AddServiceDefaults(ReviewAgent.Infrastructure.DependencyInjection.TelemetrySourceName);
 
 builder.Services.AddOpenApi();
 builder.Services.AddProblemDetails();
