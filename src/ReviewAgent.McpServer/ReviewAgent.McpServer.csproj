@@ -21,6 +21,7 @@
   <ItemGroup>
     <ProjectReference Include="..\ReviewAgent.Application\ReviewAgent.Application.csproj" />
     <ProjectReference Include="..\ReviewAgent.Infrastructure\ReviewAgent.Infrastructure.csproj" />
+    <ProjectReference Include="..\ReviewAgent.ServiceDefaults\ReviewAgent.ServiceDefaults.csproj" />
   </ItemGroup>
 
 </Project>

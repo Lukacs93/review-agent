@@ -49,6 +49,14 @@ internal sealed class AgentOptions : IValidatableObject
     [Range(typeof(TimeSpan), "00:00:10", "01:00:00", ErrorMessage = AgentErrors.TimeoutOutOfRange)]
     public TimeSpan Timeout { get; init; } = TimeSpan.FromMinutes(5);
 
+    /// <summary>
+    /// Whether the traces of the model calls include their content: the prompts, the reviewed code and the model's
+    /// answers. Off by default.
+    /// </summary>
+    // The content leaves the application with the traces, to whatever receives them; turn it on only for
+    // development.
+    public bool TelemetryIncludesContent { get; init; }
+
     /// <summary>The verifier agent, which double-checks the proposed comments.</summary>
     public VerifierOptions Verifier { get; init; } = new();
 

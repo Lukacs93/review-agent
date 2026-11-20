@@ -1,8 +1,11 @@
 using ReviewAgent.Infrastructure;
 using ReviewAgent.McpServer;
 using ReviewAgent.McpServer.Tools;
+using ReviewAgent.ServiceDefaults;
 
 var builder = WebApplication.CreateBuilder(args);
+
+builder.AddServiceDefaults();
 
 builder.Services.AddHttpContextAccessor();
 // Only the read-only part of the Infrastructure layer: the pull request sources and the team rules setting. The

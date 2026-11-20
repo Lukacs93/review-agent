@@ -31,6 +31,12 @@ public static class DependencyInjection
     /// <summary>The name of the connection string in the configuration: <c>ConnectionStrings:ReviewAgent</c>.</summary>
     public const string ConnectionStringName = "ReviewAgent";
 
+    /// <summary>
+    /// The name of the agents' OpenTelemetry source: the review runs, the model calls and the tool calls are traced
+    /// and measured under it.
+    /// </summary>
+    public const string TelemetrySourceName = "ReviewAgent.Agents";
+
     // SQLite's name for a database kept in memory instead of a file.
     private const string InMemoryDataSource = ":memory:";
 
