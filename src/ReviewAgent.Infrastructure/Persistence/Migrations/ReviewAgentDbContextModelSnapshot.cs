@@ -57,6 +57,40 @@ namespace ReviewAgent.Infrastructure.Persistence.Migrations
                     b.ToTable("ReviewRuns", (string)null);
                 });
 
+            modelBuilder.Entity("ReviewAgent.Infrastructure.Persistence.RunLog.StoredRunLogEntry", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("Category")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Exception")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Level")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Message")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<Guid>("RunId")
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTimeOffset>("Timestamp")
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("RunId");
+
+                    b.ToTable("RunLogEntries", (string)null);
+                });
+
             modelBuilder.Entity("ReviewAgent.Infrastructure.Persistence.Reviews.StoredReviewEvent", b =>
                 {
                     b.HasOne("ReviewAgent.Infrastructure.Persistence.Reviews.StoredReviewRun", null)

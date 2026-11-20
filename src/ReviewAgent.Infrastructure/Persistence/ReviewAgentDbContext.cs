@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using ReviewAgent.Infrastructure.Persistence.Reviews;
+using ReviewAgent.Infrastructure.Persistence.RunLog;
 
 namespace ReviewAgent.Infrastructure.Persistence;
 
@@ -10,9 +11,13 @@ internal sealed class ReviewAgentDbContext(DbContextOptions<ReviewAgentDbContext
 
     public DbSet<StoredReviewEvent> ReviewEvents => Set<StoredReviewEvent>();
 
+    /// <summary>The log lines of the review runs; see <see cref="Logging.RunLogProvider"/>.</summary>
+    public DbSet<StoredRunLogEntry> RunLogEntries => Set<StoredRunLogEntry>();
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         modelBuilder.ApplyConfiguration(new StoredReviewRunConfiguration());
         modelBuilder.ApplyConfiguration(new StoredReviewEventConfiguration());
+        modelBuilder.ApplyConfiguration(new StoredRunLogEntryConfiguration());
     }
 }

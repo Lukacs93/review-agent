@@ -2,18 +2,23 @@ using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Http.Resilience;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using ReviewAgent.Application.Reviews;
 using ReviewAgent.Application.Reviews.Agent;
 using ReviewAgent.Application.Reviews.Publishing;
+using ReviewAgent.Application.Reviews.Queries.GetRunLog;
 using ReviewAgent.Application.SourceControl;
 using ReviewAgent.Infrastructure.Agents;
 using ReviewAgent.Infrastructure.Agents.LanguageModel;
 using ReviewAgent.Infrastructure.Agents.Tools;
+using ReviewAgent.Infrastructure.Logging;
 using ReviewAgent.Infrastructure.Persistence;
 using ReviewAgent.Infrastructure.Persistence.Errors;
 using ReviewAgent.Infrastructure.Persistence.Reviews;
+using ReviewAgent.Infrastructure.Persistence.RunLog;
 using ReviewAgent.Infrastructure.SourceControl;
 using ReviewAgent.Infrastructure.SourceControl.GitHub;
 using ReviewAgent.Infrastructure.SourceControl.GitHub.Errors;
@@ -45,7 +50,7 @@ public static class DependencyInjection
     /// publishers and the review agent.
     /// </summary>
     public static IServiceCollection AddInfrastructure(this IServiceCollection services) =>
-        services.AddPersistence().AddSourceControl().AddReviewPublishing().AddReviewAgent();
+        services.AddPersistence().AddSourceControl().AddReviewPublishing().AddReviewAgent().AddRunLog();
 
     /// <summary>The event store: the EF Core context and the review run repository.</summary>
     public static IServiceCollection AddPersistence(this IServiceCollection services)
@@ -66,6 +71,7 @@ public static class DependencyInjection
         });
 
         services.AddScoped<IReviewRunRepository, EfReviewRunRepository>();
+        services.AddScoped<IRunLogReader, EfRunLogReader>();
 
         return services;
     }
@@ -209,6 +215,28 @@ public static class DependencyInjection
         services.AddSingleton<IPullRequestToolsConnector, McpPullRequestToolsConnector>();
         services.AddScoped<ReviewAgentCommands>();
         services.AddScoped<IReviewAgent, ReviewAgentRunner>();
+
+        return services;
+    }
+
+    /// <summary>
+    /// Saves the log lines written while a review run is running, with the run's ID, so the UI can show a run's log.
+    /// </summary>
+    public static IServiceCollection AddRunLog(this IServiceCollection services)
+    {
+        ArgumentNullException.ThrowIfNull(services);
+
+        services.AddOptions<RunLogOptions>()
+            .BindConfiguration(RunLogOptions.SectionName)
+            .ValidateDataAnnotations()
+            .ValidateOnStart();
+
+        // The provider stamps the lines with the time. The Application layer registers the same clock; TryAdd keeps
+        // the Infrastructure usable without it (the tests build only this layer) and adds no second clock.
+        services.TryAddSingleton(TimeProvider.System);
+        services.AddSingleton<RunLogQueue>();
+        services.AddSingleton<ILoggerProvider, RunLogProvider>();
+        services.AddHostedService<RunLogWriter>();
 
         return services;
     }
