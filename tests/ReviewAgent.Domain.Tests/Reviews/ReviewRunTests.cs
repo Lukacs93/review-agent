@@ -379,23 +379,23 @@ public sealed class ReviewRunTests
     }
 
     [Fact]
-    public void Verifier_summary_is_kept()
+    public void Verification_is_recorded()
     {
         var run = StartedRun();
 
-        run.FinishVerification("Kept 2 comments and rejected 1.", Now);
+        run.FinishVerification(Now);
 
-        Assert.Equal("Kept 2 comments and rejected 1.", run.VerifierSummary);
+        Assert.True(run.IsVerified);
         Assert.Equal(ReviewStatus.Running, run.Status);
         Assert.IsType<VerificationFinished>(LastEventOf(run));
     }
 
     [Fact]
-    public void Verifier_summary_is_required()
+    public void Run_is_not_verified_until_the_verifier_finishes()
     {
         var run = StartedRun();
 
-        AssertFails(ReviewRunErrors.VerifierSummaryRequired, () => run.FinishVerification(" ", Now));
+        Assert.False(run.IsVerified);
     }
 
     [Fact]
@@ -404,18 +404,18 @@ public sealed class ReviewRunTests
         var run = StartedRun();
         run.Finish(Summary, CommitSha, Now);
 
-        AssertFails(ReviewRunErrors.VerifyWhenNotRunning, () => run.FinishVerification("Kept 0 comments.", Now));
+        AssertFails(ReviewRunErrors.VerifyWhenNotRunning, () => run.FinishVerification(Now));
     }
 
     [Fact]
-    public void Verifier_summary_is_rebuilt_from_the_history()
+    public void Verification_is_rebuilt_from_the_history()
     {
         var run = StartedRun();
-        run.FinishVerification("Kept 0 comments.", Now);
+        run.FinishVerification(Now);
 
         var rebuilt = ReviewRun.FromHistory(run.UncommittedEvents);
 
-        Assert.Equal("Kept 0 comments.", rebuilt.VerifierSummary);
+        Assert.True(rebuilt.IsVerified);
     }
 
     [Fact]

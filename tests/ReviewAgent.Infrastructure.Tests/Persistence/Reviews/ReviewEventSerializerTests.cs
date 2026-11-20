@@ -66,6 +66,23 @@ public sealed class ReviewEventSerializerTests
         Assert.Equal(finished, read);
     }
 
+    // Events stored before the verifier's sentence was dropped still have it.
+    [Fact]
+    public void Verification_event_stored_with_the_verifiers_sentence_is_read()
+    {
+        var finished = new VerificationFinished(RunId, Now);
+        var serialized = ReviewEventSerializer.Serialize(finished);
+
+        // The old property added before the closing brace of the event.
+        var data = serialized.Remove(serialized.LastIndexOf('}'))
+            + ",\"Summary\":\"Kept 1 comment and rejected 0.\"}";
+
+        var read = ReviewEventSerializer.Deserialize(ReviewEventSerializer.TypeNameOf(finished), data);
+
+        Assert.Contains("\"Summary\"", data, StringComparison.Ordinal);
+        Assert.Equal(finished, read);
+    }
+
     [Fact]
     public void Unknown_event_type_is_rejected()
     {
@@ -89,7 +106,7 @@ public sealed class ReviewEventSerializerTests
             "Use an application handler instead of the DbContext.",
             null),
         new CommentRejected(RunId, Now, CommentId, "The query does not change state."),
-        new VerificationFinished(RunId, Now, "Kept 1 comment and rejected 0."),
+        new VerificationFinished(RunId, Now),
         new ReviewFinished(RunId, Now, "One architecture issue.", "9fceb02d0ae598e95dc970b74767f19372d61af8"),
         new ReviewFailed(RunId, Now, "The model did not answer."),
         new CommentApproved(RunId, Now, CommentId),
