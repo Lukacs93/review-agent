@@ -228,7 +228,7 @@ public sealed class ReviewAgentRunnerTests : IDisposable
     public async Task Model_calls_are_recorded_with_their_tokens()
     {
         var model = new ScriptedChatClient(
-            ScriptedChatClient.CallsTool("get_pull_request"),
+            ScriptedChatClient.WithUsage(ScriptedChatClient.CallsTool("get_pull_request"), 1000, 50),
             ScriptedChatClient.Answers(Summary, inputTokens: 1200, outputTokens: 80));
         var runId = await StartRunAsync();
 
@@ -236,8 +236,8 @@ public sealed class ReviewAgentRunnerTests : IDisposable
 
         var run = await LoadAsync(runId);
         Assert.Equal(2, run.ModelCallCount);
-        Assert.Equal(1200, run.InputTokenCount);
-        Assert.Equal(80, run.OutputTokenCount);
+        Assert.Equal(2200, run.InputTokenCount);
+        Assert.Equal(130, run.OutputTokenCount);
         Assert.True(run.ModelTime >= TimeSpan.Zero);
     }
 

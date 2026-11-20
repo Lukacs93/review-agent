@@ -35,6 +35,18 @@ internal sealed class ScriptedChatClient(params Func<IReadOnlyList<ChatMessage>,
             Usage = new UsageDetails { InputTokenCount = inputTokens, OutputTokenCount = outputTokens },
         };
 
+    /// <summary>A step whose response also carries the token counts a model's API reports with it.</summary>
+    public static Func<IReadOnlyList<ChatMessage>, ChatResponse> WithUsage(
+        Func<IReadOnlyList<ChatMessage>, ChatResponse> step,
+        long inputTokens,
+        long outputTokens) =>
+        messages =>
+        {
+            var response = step(messages);
+            response.Usage = new UsageDetails { InputTokenCount = inputTokens, OutputTokenCount = outputTokens };
+            return response;
+        };
+
     public static Func<IReadOnlyList<ChatMessage>, ChatResponse> Fails(Exception exception) =>
         _ => throw exception;
 
