@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using Microsoft.Extensions.AI;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
@@ -219,6 +220,47 @@ public sealed class ReviewAgentRunnerTests : IDisposable
         Assert.Equal($"{Summary}\n\n{AgentErrors.VerificationFailed(error)}", run.Summary);
         Assert.False(Assert.Single(run.Comments).IsRejected);
         Assert.False(run.IsVerified);
+    }
+
+    // The trace of a review run can be found by the run's ID, and the model calls are traced inside it.
+    [Fact]
+    public async Task Review_run_is_traced_with_its_id_and_its_model_calls()
+    {
+        var activities = new List<Activity>();
+        using var listener = new ActivityListener
+        {
+            ShouldListenTo = source => source.Name == DependencyInjection.TelemetrySourceName,
+            Sample = (ref ActivityCreationOptions<ActivityContext> _) => ActivitySamplingResult.AllDataAndRecorded,
+            ActivityStopped = activity =>
+            {
+                lock (activities)
+                {
+                    activities.Add(activity);
+                }
+            },
+        };
+        ActivitySource.AddActivityListener(listener);
+        var model = new ScriptedChatClient(ScriptedChatClient.Answers(Summary));
+        var runId = await StartRunAsync();
+
+        await Runner(() => model).ReviewAsync(runId, CancellationToken.None);
+
+        Activity[] stopped;
+        lock (activities)
+        {
+            stopped = [.. activities];
+        }
+
+        // Other tests may run reviews at the same time; this run's spans share its trace.
+        var review = Assert.Single(
+            stopped,
+            activity => activity.OperationName == AgentTelemetry.ReviewActivityName
+                && Equals(activity.GetTagItem(AgentTelemetry.RunIdTag), runId));
+        Assert.Contains(
+            stopped,
+            activity => activity.TraceId == review.TraceId && activity.ParentSpanId != default
+                && activity.Source.Name == DependencyInjection.TelemetrySourceName
+                && activity.OperationName != AgentTelemetry.ReviewActivityName);
     }
 
     public void Dispose() => _database.Dispose();
