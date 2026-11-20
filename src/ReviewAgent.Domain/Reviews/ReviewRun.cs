@@ -32,11 +32,8 @@ public sealed class ReviewRun
 
     public string? FailureReason { get; private set; }
 
-    /// <summary>
-    /// The verifier agent's closing sentence: how many comments it kept and rejected; <see langword="null"/> if it
-    /// did not run.
-    /// </summary>
-    public string? VerifierSummary { get; private set; }
+    /// <summary>Whether the verifier agent double-checked the comments.</summary>
+    public bool IsVerified { get; private set; }
 
     /// <summary>
     /// The pull request's latest commit when the agent read it; <see langword="null"/> until the review has finished,
@@ -131,13 +128,12 @@ public sealed class ReviewRun
         Raise(new CommentRejected(Id, now, commentId, reason.Trim()));
     }
 
-    /// <summary>Records the verifier agent's closing sentence, when it has double-checked the comments.</summary>
-    public void FinishVerification(string summary, DateTimeOffset now)
+    /// <summary>Records that the verifier agent has double-checked the comments.</summary>
+    public void FinishVerification(DateTimeOffset now)
     {
         EnsureStatus(ReviewStatus.Running, ReviewRunErrors.VerifyWhenNotRunning);
-        EnsureNotBlank(summary, ReviewRunErrors.VerifierSummaryRequired);
 
-        Raise(new VerificationFinished(Id, now, summary.Trim()));
+        Raise(new VerificationFinished(Id, now));
     }
 
     public void Finish(string summary, string? reviewedCommitSha, DateTimeOffset now)
@@ -282,8 +278,8 @@ public sealed class ReviewRun
                 FindComment(rejected.CommentId).Reject(rejected.Reason);
                 break;
 
-            case VerificationFinished verificationFinished:
-                VerifierSummary = verificationFinished.Summary;
+            case VerificationFinished:
+                IsVerified = true;
                 break;
 
             case ReviewFinished finished:
