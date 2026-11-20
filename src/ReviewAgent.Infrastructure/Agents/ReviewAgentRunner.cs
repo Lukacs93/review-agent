@@ -106,19 +106,7 @@ internal sealed partial class ReviewAgentRunner(
 
         await using var connection = await toolsConnector.ConnectAsync(pullRequest, cancellationToken);
 
-        // The function-invoking client runs the tools the model asks for and sends back the results, until the
-        // model answers without asking for more; the agents reuse it instead of adding their own. The OpenTelemetry
-        // client inside it traces and measures each model call (time, tokens) on its own.
-        using var chatClient = chatClientFactory.Create()
-            .AsBuilder()
-            .UseFunctionInvocation(
-                loggerFactory,
-                functionInvoker => functionInvoker.MaximumIterationsPerRequest = settings.MaxToolRounds)
-            .UseOpenTelemetry(
-                loggerFactory,
-                DependencyInjection.TelemetrySourceName,
-                telemetry => telemetry.EnableSensitiveData = settings.TelemetryIncludesContent)
-            .Build();
+        using var chatClient = CreateChatClient(runId, ReviewInstructions.ReviewerName);
 
         var proposeComment = new ProposeCommentTool(runId, snapshot, rules, commands.ProposeComment);
         var reviewer = chatClient.AsAIAgent(
@@ -137,7 +125,7 @@ internal sealed partial class ReviewAgentRunner(
             return (summary, snapshot.HeadCommitSha);
         }
 
-        var verificationFailure = await VerifyCommentsAsync(runId, connection.Tools, chatClient, cancellationToken);
+        var verificationFailure = await VerifyCommentsAsync(runId, connection.Tools, cancellationToken);
         var verifiedSummary = verificationFailure is null
             ? summary
             : $"{summary}\n\n{AgentErrors.VerificationFailed(verificationFailure)}";
@@ -153,7 +141,6 @@ internal sealed partial class ReviewAgentRunner(
     private async Task<string?> VerifyCommentsAsync(
         Guid runId,
         IReadOnlyList<AIFunction> pullRequestTools,
-        IChatClient chatClient,
         CancellationToken cancellationToken)
     {
         var run = await repository.GetAsync(new ReviewRunId(runId), cancellationToken);
@@ -167,6 +154,7 @@ internal sealed partial class ReviewAgentRunner(
             runId,
             proposed.Select(comment => comment.Id.Value),
             commands.RejectComment);
+        using var chatClient = CreateChatClient(runId, ReviewInstructions.VerifierName);
         var verifier = chatClient.AsAIAgent(
             instructions: ReviewInstructions.VerifierSystemPrompt,
             name: ReviewInstructions.VerifierName,
@@ -196,6 +184,27 @@ internal sealed partial class ReviewAgentRunner(
         await commands.FinishVerification.HandleAsync(new FinishVerificationCommand(runId), cancellationToken);
 
         return null;
+    }
+
+    /// <summary>The client one agent talks to the model with, for one review run.</summary>
+    // The function-invoking client runs the tools the model asks for and sends back the results, until the model
+    // answers without asking for more; the agents use it instead of adding their own. Inside it, each model call is
+    // recorded on the run with the agent's name (so one client per agent), and traced and measured by OpenTelemetry;
+    // the recording is outside the trace, so saving it does not add to the call's measured time.
+    private IChatClient CreateChatClient(Guid runId, string agentName)
+    {
+        var settings = options.Value;
+        return chatClientFactory.Create()
+            .AsBuilder()
+            .UseFunctionInvocation(
+                loggerFactory,
+                functionInvoker => functionInvoker.MaximumIterationsPerRequest = settings.MaxToolRounds)
+            .Use(innerClient => new RecordedChatClient(innerClient, runId, commands.RecordModelCall, agentName))
+            .UseOpenTelemetry(
+                loggerFactory,
+                DependencyInjection.TelemetrySourceName,
+                telemetry => telemetry.EnableSensitiveData = settings.TelemetryIncludesContent)
+            .Build();
     }
 
     private List<AITool> RecordedTools(Guid runId, IEnumerable<AIFunction> tools, string agentName) =>

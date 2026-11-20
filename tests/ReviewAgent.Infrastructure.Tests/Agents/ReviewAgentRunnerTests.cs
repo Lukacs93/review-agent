@@ -7,6 +7,7 @@ using ReviewAgent.Application.Reviews.Commands.FailReview;
 using ReviewAgent.Application.Reviews.Commands.FinishReview;
 using ReviewAgent.Application.Reviews.Commands.FinishVerification;
 using ReviewAgent.Application.Reviews.Commands.ProposeComment;
+using ReviewAgent.Application.Reviews.Commands.RecordModelCall;
 using ReviewAgent.Application.Reviews.Commands.RecordToolCall;
 using ReviewAgent.Application.Reviews.Commands.RejectComment;
 using ReviewAgent.Application.SourceControl;
@@ -222,6 +223,24 @@ public sealed class ReviewAgentRunnerTests : IDisposable
         Assert.False(run.IsVerified);
     }
 
+    // Each round of the tool loop is one model call; the token counts are those the model's API reported.
+    [Fact]
+    public async Task Model_calls_are_recorded_with_their_tokens()
+    {
+        var model = new ScriptedChatClient(
+            ScriptedChatClient.WithUsage(ScriptedChatClient.CallsTool("get_pull_request"), 1000, 50),
+            ScriptedChatClient.Answers(Summary, inputTokens: 1200, outputTokens: 80));
+        var runId = await StartRunAsync();
+
+        await Runner(() => model).ReviewAsync(runId, CancellationToken.None);
+
+        var run = await LoadAsync(runId);
+        Assert.Equal(2, run.ModelCallCount);
+        Assert.Equal(2200, run.InputTokenCount);
+        Assert.Equal(130, run.OutputTokenCount);
+        Assert.True(run.ModelTime >= TimeSpan.Zero);
+    }
+
     // The trace of a review run can be found by the run's ID, and the model calls are traced inside it.
     [Fact]
     public async Task Review_run_is_traced_with_its_id_and_its_model_calls()
@@ -298,6 +317,7 @@ public sealed class ReviewAgentRunnerTests : IDisposable
             new FakeChatClientFactory(createModel),
             new ReviewAgentCommands(
                 new RecordToolCallCommandHandler(_repository, TimeProvider.System),
+                new RecordModelCallCommandHandler(_repository, TimeProvider.System),
                 new ProposeCommentCommandHandler(_repository, TimeProvider.System),
                 new RejectCommentCommandHandler(_repository, TimeProvider.System),
                 new FinishVerificationCommandHandler(_repository, TimeProvider.System),

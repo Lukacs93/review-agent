@@ -23,6 +23,24 @@ public sealed record ReviewRunDetails
 
     public required int ToolCallCount { get; init; }
 
+    /// <summary>How many times the agents called the model.</summary>
+    public required int ModelCallCount { get; init; }
+
+    /// <summary>The time the model calls took together.</summary>
+    public required TimeSpan ModelTime { get; init; }
+
+    /// <summary>
+    /// The input tokens of the model calls together; <see langword="null"/> when the model's API did not report
+    /// them for every call.
+    /// </summary>
+    public long? InputTokenCount { get; init; }
+
+    /// <summary>
+    /// The output tokens of the model calls together; <see langword="null"/> when the model's API did not report
+    /// them for every call.
+    /// </summary>
+    public long? OutputTokenCount { get; init; }
+
     /// <summary>The agent's summary; <see langword="null"/> until the review has finished.</summary>
     public string? Summary { get; init; }
 
@@ -53,6 +71,10 @@ public sealed record ReviewRunDetails
             Status = run.Status,
             StartedAt = run.StartedAt,
             ToolCallCount = run.ToolCallCount,
+            ModelCallCount = run.ModelCallCount,
+            ModelTime = run.ModelTime,
+            InputTokenCount = run.InputTokenCount,
+            OutputTokenCount = run.OutputTokenCount,
             Summary = run.Summary,
             VerifierSummary = run.IsVerified ? VerifierSummaryOf(run.Comments) : null,
             FailureReason = run.FailureReason,

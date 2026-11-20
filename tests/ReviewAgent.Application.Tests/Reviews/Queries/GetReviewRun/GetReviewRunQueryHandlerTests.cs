@@ -64,6 +64,26 @@ public sealed class GetReviewRunQueryHandlerTests
     }
 
     [Fact]
+    public async Task Model_calls_are_returned_added_up()
+    {
+        var run = ReviewRun.Start(
+            ReviewRunId.New(),
+            new PullRequestRef(TestReviewRuns.RepositoryOwner, TestReviewRuns.RepositoryName, 1),
+            TestReviewRuns.Now);
+        run.RecordModelCall("code-reviewer", TimeSpan.FromSeconds(2), 1200, 80, TestReviewRuns.Now);
+        run.RecordModelCall("verifier", TimeSpan.FromSeconds(1), 300, 10, TestReviewRuns.Now);
+        await _repository.SaveAsync(run, CancellationToken.None);
+
+        var details = await Handler.HandleAsync(new GetReviewRunQuery(run.Id.Value), CancellationToken.None);
+
+        Assert.NotNull(details);
+        Assert.Equal(2, details.ModelCallCount);
+        Assert.Equal(TimeSpan.FromSeconds(3), details.ModelTime);
+        Assert.Equal(1500, details.InputTokenCount);
+        Assert.Equal(90, details.OutputTokenCount);
+    }
+
+    [Fact]
     public async Task Run_without_verification_has_no_verifier_summary()
     {
         var (runId, _) = await TestReviewRuns.SaveFinishedRunWithOneCommentAsync(_repository);

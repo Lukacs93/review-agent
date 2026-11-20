@@ -42,6 +42,102 @@ public sealed class ReviewRunTests
     }
 
     [Fact]
+    public void Model_calls_are_added_up()
+    {
+        var run = StartedRun();
+
+        run.RecordModelCall("code-reviewer", TimeSpan.FromSeconds(2), 1200, 80, Now);
+        run.RecordModelCall("verifier", TimeSpan.FromSeconds(3), 900, 20, Now);
+
+        Assert.Equal(2, run.ModelCallCount);
+        Assert.Equal(TimeSpan.FromSeconds(5), run.ModelTime);
+        Assert.Equal(2100, run.InputTokenCount);
+        Assert.Equal(100, run.OutputTokenCount);
+        Assert.IsType<ModelCalled>(LastEventOf(run));
+    }
+
+    [Fact]
+    public void Run_without_model_calls_has_used_no_tokens()
+    {
+        var run = StartedRun();
+
+        Assert.Equal(0, run.InputTokenCount);
+        Assert.Equal(0, run.OutputTokenCount);
+    }
+
+    // A total that silently left out a call would be too low; it is unknown instead, also after later calls.
+    [Fact]
+    public void Token_total_is_unknown_once_a_call_did_not_report_its_count()
+    {
+        var run = StartedRun();
+        run.RecordModelCall("code-reviewer", TimeSpan.FromSeconds(1), 1200, 80, Now);
+
+        run.RecordModelCall("code-reviewer", TimeSpan.FromSeconds(1), inputTokens: null, outputTokens: 20, Now);
+        run.RecordModelCall("verifier", TimeSpan.FromSeconds(1), 300, 10, Now);
+
+        Assert.Equal(3, run.ModelCallCount);
+        Assert.Null(run.InputTokenCount);
+        Assert.Equal(110, run.OutputTokenCount);
+    }
+
+    [Fact]
+    public void Model_call_needs_the_agents_name()
+    {
+        var run = StartedRun();
+
+        AssertFails(
+            ReviewRunErrors.AgentNameRequired,
+            () => run.RecordModelCall(" ", TimeSpan.FromSeconds(1), 1, 1, Now));
+    }
+
+    [Fact]
+    public void Model_call_cannot_take_negative_time()
+    {
+        var run = StartedRun();
+
+        AssertFails(
+            ReviewRunErrors.NegativeDuration,
+            () => run.RecordModelCall("code-reviewer", TimeSpan.FromSeconds(-1), 1, 1, Now));
+    }
+
+    [Theory]
+    [InlineData(-1, 1)]
+    [InlineData(1, -1)]
+    public void Model_call_cannot_have_negative_tokens(long inputTokens, long outputTokens)
+    {
+        var run = StartedRun();
+
+        AssertFails(
+            ReviewRunErrors.NegativeTokens,
+            () => run.RecordModelCall("code-reviewer", TimeSpan.FromSeconds(1), inputTokens, outputTokens, Now));
+    }
+
+    [Fact]
+    public void Model_calls_cannot_be_recorded_after_the_review_finished()
+    {
+        var run = StartedRun();
+        run.Finish(Summary, CommitSha, Now);
+
+        AssertFails(
+            ReviewRunErrors.ModelCallWhenNotRunning,
+            () => run.RecordModelCall("code-reviewer", TimeSpan.FromSeconds(1), 1, 1, Now));
+    }
+
+    [Fact]
+    public void Model_calls_are_rebuilt_from_the_history()
+    {
+        var run = StartedRun();
+        run.RecordModelCall("code-reviewer", TimeSpan.FromSeconds(2), 1200, 80, Now);
+
+        var rebuilt = ReviewRun.FromHistory(run.UncommittedEvents);
+
+        Assert.Equal(1, rebuilt.ModelCallCount);
+        Assert.Equal(TimeSpan.FromSeconds(2), rebuilt.ModelTime);
+        Assert.Equal(1200, rebuilt.InputTokenCount);
+        Assert.Equal(80, rebuilt.OutputTokenCount);
+    }
+
+    [Fact]
     public void Proposed_comment_is_pending()
     {
         var run = StartedRun();
