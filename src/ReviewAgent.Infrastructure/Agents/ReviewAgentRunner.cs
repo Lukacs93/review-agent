@@ -161,13 +161,13 @@ internal sealed partial class ReviewAgentRunner(
                 pullRequestTools.Append(rejectComment.AsAIFunction()),
                 ReviewInstructions.VerifierName));
 
-        string verifierSummary;
+        string verifierAnswer;
         try
         {
             var response = await verifier.RunAsync(
                 ReviewInstructions.VerifierTaskPrompt(proposed),
                 cancellationToken: cancellationToken);
-            verifierSummary = response.Text;
+            verifierAnswer = response.Text;
         }
         catch (Exception exception) when (exception is not OperationCanceledException)
         {
@@ -176,14 +176,10 @@ internal sealed partial class ReviewAgentRunner(
             return ModelErrorDetails.Describe(exception);
         }
 
-        // Saved outside the try: a failure to save is not a failed verification.
-        if (!string.IsNullOrWhiteSpace(verifierSummary))
-        {
-            LogVerificationFinished(_logger, runId, verifierSummary);
-            await commands.FinishVerification.HandleAsync(
-                new FinishVerificationCommand(runId, verifierSummary),
-                cancellationToken);
-        }
+        // The model's own sentence only goes to the log: how many comments it kept and rejected is counted from
+        // the rejections it actually made. Saved outside the try: a failure to save is not a failed verification.
+        LogVerificationFinished(_logger, runId, verifierAnswer);
+        await commands.FinishVerification.HandleAsync(new FinishVerificationCommand(runId), cancellationToken);
 
         return null;
     }
@@ -207,8 +203,8 @@ internal sealed partial class ReviewAgentRunner(
     [LoggerMessage(Level = LogLevel.Warning, Message = "The model's API answered for run {RunId}: {Answer}")]
     private static partial void LogModelAnswer(ILogger logger, Guid runId, string answer);
 
-    [LoggerMessage(Level = LogLevel.Information, Message = "The verifier of run {RunId} answered: {Summary}")]
-    private static partial void LogVerificationFinished(ILogger logger, Guid runId, string summary);
+    [LoggerMessage(Level = LogLevel.Information, Message = "The verifier of run {RunId} answered: {Answer}")]
+    private static partial void LogVerificationFinished(ILogger logger, Guid runId, string answer);
 
     [LoggerMessage(Level = LogLevel.Warning, Message = "The review of run {RunId} failed.")]
     private static partial void LogReviewFailed(ILogger logger, Guid runId, Exception exception);

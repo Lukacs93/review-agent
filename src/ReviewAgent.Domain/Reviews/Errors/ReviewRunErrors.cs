@@ -20,7 +20,6 @@ public static class ReviewRunErrors
     public const string FailureReasonRequired = "Failure reason is required.";
     public const string EditedBodyRequired = "Edited comment body is required.";
     public const string RejectionReasonRequired = "Rejection reason is required.";
-    public const string VerifierSummaryRequired = "The verifier's summary is required.";
 
     // Decisions
     public const string DecideWhenNotFinished = "Comments can only be decided after the review has finished.";

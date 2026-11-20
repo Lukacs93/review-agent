@@ -30,10 +30,12 @@ public sealed record CommentRejected(ReviewRunId RunId, DateTimeOffset OccurredA
     : ReviewEvent(RunId, OccurredAt);
 
 /// <summary>
-/// The verifier agent finished double-checking the comments; its closing sentence says how many it kept and how
-/// many it rejected.
+/// The verifier agent finished double-checking the comments. The ones it rejected are recorded as
+/// <see cref="CommentRejected"/>, so how many it kept and rejected is counted from them.
 /// </summary>
-public sealed record VerificationFinished(ReviewRunId RunId, DateTimeOffset OccurredAt, string Summary)
+// Events stored before this change also have the verifier's own sentence ("Summary"); it is ignored when they are
+// read, because the model's sentence was not always true.
+public sealed record VerificationFinished(ReviewRunId RunId, DateTimeOffset OccurredAt)
     : ReviewEvent(RunId, OccurredAt);
 
 /// <summary>

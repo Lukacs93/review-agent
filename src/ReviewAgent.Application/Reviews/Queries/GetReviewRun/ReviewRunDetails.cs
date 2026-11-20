@@ -1,3 +1,4 @@
+using System.Globalization;
 using ReviewAgent.Domain.Reviews;
 
 namespace ReviewAgent.Application.Reviews.Queries.GetReviewRun;
@@ -25,7 +26,10 @@ public sealed record ReviewRunDetails
     /// <summary>The agent's summary; <see langword="null"/> until the review has finished.</summary>
     public string? Summary { get; init; }
 
-    /// <summary>The verifier agent's closing sentence; <see langword="null"/> if it did not run.</summary>
+    /// <summary>
+    /// How many comments the verifier agent kept and rejected; <see langword="null"/> if it did not run.
+    /// </summary>
+    // Counted from the comments, not taken from the model's own sentence, which was not always true.
     public string? VerifierSummary { get; init; }
 
     /// <summary>Why the run stopped; <see langword="null"/> unless it failed.</summary>
@@ -50,10 +54,17 @@ public sealed record ReviewRunDetails
             StartedAt = run.StartedAt,
             ToolCallCount = run.ToolCallCount,
             Summary = run.Summary,
-            VerifierSummary = run.VerifierSummary,
+            VerifierSummary = run.IsVerified ? VerifierSummaryOf(run.Comments) : null,
             FailureReason = run.FailureReason,
             PublishingFailureReason = run.PublishingFailureReason,
             Comments = run.Comments.Select(ReviewCommentDetails.From).ToList(),
         };
+    }
+
+    private static string VerifierSummaryOf(IReadOnlyList<ReviewComment> comments)
+    {
+        var rejected = comments.Count(comment => comment.IsRejected);
+        var kept = comments.Count - rejected;
+        return string.Create(CultureInfo.InvariantCulture, $"Kept: {kept}, rejected: {rejected}.");
     }
 }

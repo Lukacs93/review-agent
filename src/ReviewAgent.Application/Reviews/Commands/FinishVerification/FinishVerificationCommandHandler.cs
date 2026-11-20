@@ -11,7 +11,7 @@ public sealed class FinishVerificationCommandHandler(IReviewRunRepository reposi
         ArgumentNullException.ThrowIfNull(command);
 
         var run = await repository.GetAsync(new ReviewRunId(command.RunId), cancellationToken);
-        run.FinishVerification(command.Summary, timeProvider.GetUtcNow());
+        run.FinishVerification(timeProvider.GetUtcNow());
         await repository.SaveAsync(run, cancellationToken);
     }
 }

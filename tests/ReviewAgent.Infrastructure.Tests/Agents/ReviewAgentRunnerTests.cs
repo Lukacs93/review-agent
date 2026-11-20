@@ -30,7 +30,7 @@ public sealed class ReviewAgentRunnerTests : IDisposable
     private const string CommentBody = "Use an application handler instead of the DbContext.";
     private const string Summary = "Adds a discount endpoint. The controller uses the DbContext directly.";
     private const string RulesPath = ".review/rules.md";
-    private const string VerifierSummary = "Kept 1 comment and rejected 1.";
+    private const string VerifierAnswer = "I kept 1 comment and rejected 1.";
     private const string RejectionReason = "Line 10 only declares the class; the DbContext is on line 11.";
 
     private readonly SqliteTestDatabase _database = new();
@@ -157,7 +157,7 @@ public sealed class ReviewAgentRunnerTests : IDisposable
             ScriptedChatClient.CallsToolWith(
                 RejectCommentTool.Name,
                 messages => new() { ["commentId"] = FirstCommentId(messages), ["reason"] = RejectionReason }),
-            ScriptedChatClient.Answers(VerifierSummary));
+            ScriptedChatClient.Answers(VerifierAnswer));
         var runId = await StartRunAsync();
 
         await Runner(() => model, verifierEnabled: true).ReviewAsync(runId, CancellationToken.None);
@@ -169,7 +169,7 @@ public sealed class ReviewAgentRunnerTests : IDisposable
         var rejected = Assert.Single(run.Comments, comment => comment.IsRejected);
         Assert.Equal(10, rejected.Location.Line);
         Assert.Equal(RejectionReason, rejected.RejectionReason);
-        Assert.Equal(VerifierSummary, run.VerifierSummary);
+        Assert.True(run.IsVerified);
     }
 
     [Fact]
@@ -183,7 +183,7 @@ public sealed class ReviewAgentRunnerTests : IDisposable
         var run = await LoadAsync(runId);
         Assert.Equal(ReviewStatus.AwaitingApproval, run.Status);
         Assert.Equal(Summary, run.Summary);
-        Assert.Null(run.VerifierSummary);
+        Assert.False(run.IsVerified);
     }
 
     [Fact]
@@ -199,7 +199,7 @@ public sealed class ReviewAgentRunnerTests : IDisposable
         var run = await LoadAsync(runId);
         Assert.Equal(Summary, run.Summary);
         Assert.DoesNotContain(run.Comments, comment => comment.IsRejected);
-        Assert.Null(run.VerifierSummary);
+        Assert.False(run.IsVerified);
     }
 
     [Fact]
@@ -218,7 +218,7 @@ public sealed class ReviewAgentRunnerTests : IDisposable
         Assert.Equal(ReviewStatus.AwaitingApproval, run.Status);
         Assert.Equal($"{Summary}\n\n{AgentErrors.VerificationFailed(error)}", run.Summary);
         Assert.False(Assert.Single(run.Comments).IsRejected);
-        Assert.Null(run.VerifierSummary);
+        Assert.False(run.IsVerified);
     }
 
     public void Dispose() => _database.Dispose();

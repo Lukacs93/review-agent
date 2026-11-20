@@ -44,10 +44,50 @@ public sealed class GetReviewRunQueryHandlerTests
     }
 
     [Fact]
+    public async Task Verifier_summary_counts_the_kept_and_rejected_comments()
+    {
+        var run = ReviewRun.Start(
+            ReviewRunId.New(),
+            new PullRequestRef(TestReviewRuns.RepositoryOwner, TestReviewRuns.RepositoryName, 1),
+            TestReviewRuns.Now);
+        var rejectedId = ProposeComment(run, line: 10);
+        ProposeComment(run, line: 11);
+        ProposeComment(run, line: 12);
+        run.RejectComment(rejectedId, "The line does not show the problem.", TestReviewRuns.Now);
+        run.FinishVerification(TestReviewRuns.Now);
+        await _repository.SaveAsync(run, CancellationToken.None);
+
+        var details = await Handler.HandleAsync(new GetReviewRunQuery(run.Id.Value), CancellationToken.None);
+
+        Assert.NotNull(details);
+        Assert.Equal("Kept: 2, rejected: 1.", details.VerifierSummary);
+    }
+
+    [Fact]
+    public async Task Run_without_verification_has_no_verifier_summary()
+    {
+        var (runId, _) = await TestReviewRuns.SaveFinishedRunWithOneCommentAsync(_repository);
+
+        var details = await Handler.HandleAsync(new GetReviewRunQuery(runId), CancellationToken.None);
+
+        Assert.NotNull(details);
+        Assert.Null(details.VerifierSummary);
+    }
+
+    [Fact]
     public async Task Unknown_run_returns_null()
     {
         var details = await Handler.HandleAsync(new GetReviewRunQuery(Guid.NewGuid()), CancellationToken.None);
 
         Assert.Null(details);
     }
+
+    private static CommentId ProposeComment(ReviewRun run, int line) =>
+        run.ProposeComment(
+            new CodeLocation(TestReviewRuns.FilePath, line),
+            new RuleId(TestReviewRuns.Rule),
+            Severity.Error,
+            TestReviewRuns.CommentBody,
+            suggestedFix: null,
+            TestReviewRuns.Now);
 }
