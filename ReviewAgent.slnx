@@ -14,6 +14,7 @@
     <Project Path="src/ReviewAgent.Infrastructure/ReviewAgent.Infrastructure.csproj" />
     <Project Path="src/ReviewAgent.Api/ReviewAgent.Api.csproj" />
     <Project Path="src/ReviewAgent.McpServer/ReviewAgent.McpServer.csproj" />
+    <Project Path="src/ReviewAgent.ServiceDefaults/ReviewAgent.ServiceDefaults.csproj" />
     <Project Path="src/ReviewAgent.AppHost/ReviewAgent.AppHost.csproj" />
   </Folder>
   <Folder Name="/tests/">

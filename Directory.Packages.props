@@ -31,6 +31,13 @@
     <PackageVersion Include="Microsoft.Extensions.AI" Version="10.11.0" />
     <PackageVersion Include="Microsoft.Extensions.AI.OpenAI" Version="10.11.0" />
 
+    <!-- Observability -->
+    <PackageVersion Include="OpenTelemetry.Exporter.OpenTelemetryProtocol" Version="1.21.0" />
+    <PackageVersion Include="OpenTelemetry.Extensions.Hosting" Version="1.21.0" />
+    <PackageVersion Include="OpenTelemetry.Instrumentation.AspNetCore" Version="1.21.0" />
+    <PackageVersion Include="OpenTelemetry.Instrumentation.Http" Version="1.21.0" />
+    <PackageVersion Include="OpenTelemetry.Instrumentation.Runtime" Version="1.21.0" />
+
     <!-- Transitive pins (security fixes) -->
     <!-- GHSA-v5pm-xwqc-g5wc: stack overflow on circular schema references, fixed in 2.7.5 -->
     <PackageVersion Include="Microsoft.OpenApi" Version="2.7.5" />
