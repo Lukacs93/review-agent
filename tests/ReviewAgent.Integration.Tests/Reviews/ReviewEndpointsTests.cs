@@ -7,6 +7,7 @@ using Microsoft.Extensions.DependencyInjection;
 using ReviewAgent.Application.Reviews;
 using ReviewAgent.Application.Reviews.Errors;
 using ReviewAgent.Application.Reviews.Queries.GetReviewRun;
+using ReviewAgent.Application.Reviews.Queries.GetRunLog;
 using ReviewAgent.Domain.Reviews;
 using ReviewAgent.Domain.Reviews.Errors;
 using ReviewAgent.Domain.Rules;
@@ -59,6 +60,31 @@ public sealed class ReviewEndpointsTests(ReviewAgentApiFactory factory) : IClass
         using var client = factory.CreateClient();
 
         using var response = await client.GetAsync(RunUri(Guid.NewGuid()));
+
+        Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task Run_log_of_a_new_run_is_empty()
+    {
+        using var client = factory.CreateClient();
+        using var created = await client.PostAsJsonAsync(
+            ReviewsUri,
+            new { RepositoryOwner, RepositoryName, PullRequestNumber });
+        var runId = await ReadCreatedIdAsync(created);
+
+        var lines = await client.GetFromJsonAsync<List<RunLogEntryDetails>>(RunLogUri(runId), _jsonOptions);
+
+        Assert.NotNull(lines);
+        Assert.Empty(lines);
+    }
+
+    [Fact]
+    public async Task Run_log_of_an_unknown_run_returns_not_found()
+    {
+        using var client = factory.CreateClient();
+
+        using var response = await client.GetAsync(RunLogUri(Guid.NewGuid()));
 
         Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
     }
@@ -184,6 +210,9 @@ public sealed class ReviewEndpointsTests(ReviewAgentApiFactory factory) : IClass
 
     private static Uri RunUri(Guid runId) =>
         new(string.Create(CultureInfo.InvariantCulture, $"/api/reviews/{runId}"), UriKind.Relative);
+
+    private static Uri RunLogUri(Guid runId) =>
+        new(string.Create(CultureInfo.InvariantCulture, $"/api/reviews/{runId}/log"), UriKind.Relative);
 
     private static Uri PublishUri(Guid runId) =>
         new(string.Create(CultureInfo.InvariantCulture, $"/api/reviews/{runId}/publish"), UriKind.Relative);
