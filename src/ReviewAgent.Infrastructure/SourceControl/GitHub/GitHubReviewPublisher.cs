@@ -49,6 +49,15 @@ internal sealed partial class GitHubReviewPublisher(HttpClient httpClient, ILogg
             GitHubReviewRequest.JsonOptions,
             cancellationToken);
         await EnsureSuccessAsync(response, cancellationToken);
+
+        var pullRequest = publication.PullRequest;
+        LogPublished(
+            logger,
+            publication.RunId,
+            pullRequest.Owner,
+            pullRequest.Repository,
+            pullRequest.Number,
+            publication.Comments.Count);
     }
 
     /// <summary>
@@ -80,6 +89,17 @@ internal sealed partial class GitHubReviewPublisher(HttpClient httpClient, ILogg
                 CultureInfo.InvariantCulture,
                 $"repos/{pullRequest.Owner}/{pullRequest.Repository}/pulls/{pullRequest.Number}/reviews"),
             UriKind.Relative);
+
+    [LoggerMessage(
+        Level = LogLevel.Information,
+        Message = "Published the review of run {RunId} on {Owner}/{Repository}#{Number}, comments: {CommentCount}.")]
+    private static partial void LogPublished(
+        ILogger logger,
+        Guid runId,
+        string owner,
+        string repository,
+        int number,
+        int commentCount);
 
     [LoggerMessage(Level = LogLevel.Warning, Message = "GitHub answered {StatusCode}: {Answer}")]
     private static partial void LogErrorAnswer(ILogger logger, int statusCode, string answer);

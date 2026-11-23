@@ -12,9 +12,6 @@ public sealed class RunLogTests : IDisposable
 {
     private const string Category = "ReviewAgent.Infrastructure.Agents.ReviewAgentRunner";
 
-    private static readonly Func<ILogger, Guid, IDisposable?> _runScope =
-        LoggerMessage.DefineScope<Guid>("Review run {" + RunLogProvider.RunIdKey + "}");
-
     // Defined once, like the log messages of the application code (CA1848).
     private static readonly Action<ILogger, Exception?> _logModelSlow =
         LoggerMessage.Define(LogLevel.Warning, default, "The model is slow.");
@@ -32,7 +29,7 @@ public sealed class RunLogTests : IDisposable
         using var loggerFactory = LoggerFactory.Create(logging => logging.AddProvider(Provider()));
         var logger = loggerFactory.CreateLogger(Category);
 
-        using (_runScope(logger, runId))
+        using (logger.BeginReviewRunScope(runId))
         {
             _logModelSlow(logger, null);
         }

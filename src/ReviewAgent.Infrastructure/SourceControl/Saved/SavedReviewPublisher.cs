@@ -1,5 +1,6 @@
 using System.Globalization;
 using System.Text.Json;
+using Microsoft.Extensions.Logging;
 using ReviewAgent.Application.Reviews.Publishing;
 using ReviewAgent.Infrastructure.SourceControl.GitHub;
 
@@ -10,7 +11,8 @@ namespace ReviewAgent.Infrastructure.SourceControl.Saved;
 /// the whole workflow can be run without GitHub. Layout under the root directory:
 /// <c>{owner}/{repository}/{number}/{run ID}.json</c>.
 /// </summary>
-internal sealed class SavedReviewPublisher(string rootDirectory) : IReviewPublisher
+internal sealed partial class SavedReviewPublisher(string rootDirectory, ILogger<SavedReviewPublisher> logger)
+    : IReviewPublisher
 {
     /// <summary>The name of the root directory inside the data directory.</summary>
     public const string DirectoryName = "published-reviews";
@@ -49,6 +51,7 @@ internal sealed class SavedReviewPublisher(string rootDirectory) : IReviewPublis
         }
 
         File.Move(temporaryFile, file);
+        LogSaved(logger, publication.RunId, file, publication.Comments.Count);
     }
 
     // PullRequestRef only accepts GitHub-style names, so the owner and repository cannot lead out of the root.
@@ -62,4 +65,9 @@ internal sealed class SavedReviewPublisher(string rootDirectory) : IReviewPublis
             pullRequest.Number.ToString(CultureInfo.InvariantCulture),
             publication.RunId.ToString("D", CultureInfo.InvariantCulture) + ".json");
     }
+
+    [LoggerMessage(
+        Level = LogLevel.Information,
+        Message = "Saved the review of run {RunId} to {File}, comments: {CommentCount}.")]
+    private static partial void LogSaved(ILogger logger, Guid runId, string file, int commentCount);
 }

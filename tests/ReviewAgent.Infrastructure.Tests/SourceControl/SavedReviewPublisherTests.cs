@@ -1,8 +1,11 @@
 using System.Text.Json;
+using Microsoft.Extensions.Logging.Abstractions;
 using ReviewAgent.Application.Reviews.Publishing;
 using ReviewAgent.Domain.Reviews;
+using ReviewAgent.Infrastructure.Logging;
 using ReviewAgent.Infrastructure.SourceControl.GitHub;
 using ReviewAgent.Infrastructure.SourceControl.Saved;
+using ReviewAgent.Infrastructure.Tests.Logging;
 
 namespace ReviewAgent.Infrastructure.Tests.SourceControl;
 
@@ -22,7 +25,7 @@ public sealed class SavedReviewPublisherTests : IDisposable
     private string PublishedFile =>
         Path.Combine(_root.Path, "test", "demo", "1", $"{_runId}.json");
 
-    private SavedReviewPublisher Publisher => new(_root.Path);
+    private SavedReviewPublisher Publisher => new(_root.Path, NullLogger<SavedReviewPublisher>.Instance);
 
     [Fact]
     public async Task Review_is_written_as_the_request_GitHub_would_get()
@@ -47,6 +50,24 @@ public sealed class SavedReviewPublisherTests : IDisposable
         await Publisher.PublishAsync(Publication, CancellationToken.None);
 
         Assert.True(await Publisher.IsPublishedAsync(Publication, CancellationToken.None));
+    }
+
+    [Fact]
+    public async Task Saving_is_logged_in_the_run_log()
+    {
+        using var runLog = new RunLogCapture();
+        var logger = runLog.CreateLogger<SavedReviewPublisher>();
+        var publisher = new SavedReviewPublisher(_root.Path, logger);
+
+        using (logger.BeginReviewRunScope(_runId))
+        {
+            await publisher.PublishAsync(Publication, CancellationToken.None);
+        }
+
+        var line = Assert.Single(runLog.Lines());
+        Assert.Equal(_runId, line.RunId);
+        Assert.Equal("Information", line.Level);
+        Assert.Equal($"Saved the review of run {_runId} to {PublishedFile}, comments: 1.", line.Message);
     }
 
     public void Dispose() => _root.Dispose();
