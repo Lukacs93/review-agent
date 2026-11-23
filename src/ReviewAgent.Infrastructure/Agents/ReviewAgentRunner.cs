@@ -11,7 +11,6 @@ using ReviewAgent.Domain.Reviews;
 using ReviewAgent.Infrastructure.Agents.Errors;
 using ReviewAgent.Infrastructure.Agents.LanguageModel;
 using ReviewAgent.Infrastructure.Agents.Tools;
-using ReviewAgent.Infrastructure.Logging;
 using ReviewAgent.Infrastructure.Rules;
 
 namespace ReviewAgent.Infrastructure.Agents;
@@ -33,10 +32,6 @@ internal sealed partial class ReviewAgentRunner(
     IOptions<TeamRulesOptions> teamRules,
     ILoggerFactory loggerFactory) : IReviewAgent
 {
-    // A log scope, defined once like the log messages below, so the template is not parsed on every run.
-    private static readonly Func<ILogger, Guid, IDisposable?> _reviewRunScope =
-        LoggerMessage.DefineScope<Guid>("Review run {" + RunLogProvider.RunIdKey + "}");
-
     private readonly ILogger _logger = loggerFactory.CreateLogger<ReviewAgentRunner>();
 
     public async Task ReviewAsync(Guid runId, CancellationToken cancellationToken)
@@ -48,10 +43,10 @@ internal sealed partial class ReviewAgentRunner(
             return;
         }
 
-        // Every span and log line of this run carries its ID, so its trace and logs can be found by it.
+        // Every span of this run carries its ID, so its trace can be found by it. Its log lines get the ID from the
+        // review worker's log scope.
         using var activity = AgentTelemetry.Source.StartActivity(AgentTelemetry.ReviewActivityName);
         activity?.SetTag(AgentTelemetry.RunIdTag, runId);
-        using var logScope = _reviewRunScope(_logger, runId);
 
         var timeout = options.Value.Timeout;
         using var timeoutSource = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
