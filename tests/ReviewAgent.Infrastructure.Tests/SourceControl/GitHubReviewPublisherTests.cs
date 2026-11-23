@@ -3,8 +3,10 @@ using System.Text.Json;
 using Microsoft.Extensions.Logging.Abstractions;
 using ReviewAgent.Application.Reviews.Publishing;
 using ReviewAgent.Domain.Reviews;
+using ReviewAgent.Infrastructure.Logging;
 using ReviewAgent.Infrastructure.SourceControl.GitHub;
 using ReviewAgent.Infrastructure.SourceControl.GitHub.Errors;
+using ReviewAgent.Infrastructure.Tests.Logging;
 
 namespace ReviewAgent.Infrastructure.Tests.SourceControl;
 
@@ -146,6 +148,24 @@ public sealed class GitHubReviewPublisherTests : IDisposable
         _handler.Respond(ReviewsPath, HttpStatusCode.OK, JsonSerializer.Serialize(reviews));
 
         Assert.False(await Publisher.IsPublishedAsync(Publication, CancellationToken.None));
+    }
+
+    [Fact]
+    public async Task Publishing_is_logged_in_the_run_log()
+    {
+        _handler.Respond(ReviewsPath, HttpStatusCode.OK, "{}");
+        using var runLog = new RunLogCapture();
+        var logger = runLog.CreateLogger<GitHubReviewPublisher>();
+
+        using (logger.BeginReviewRunScope(_runId))
+        {
+            await new GitHubReviewPublisher(_client, logger).PublishAsync(Publication, CancellationToken.None);
+        }
+
+        var line = Assert.Single(runLog.Lines());
+        Assert.Equal(_runId, line.RunId);
+        Assert.Equal("Information", line.Level);
+        Assert.Equal($"Published the review of run {_runId} on test/demo#1, comments: 1.", line.Message);
     }
 
     public void Dispose()
