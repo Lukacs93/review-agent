@@ -152,7 +152,8 @@ public static class DependencyInjection
         // A singleton for the same reason as the saved source. It writes into the data directory, never next to the
         // saved pull requests, which are copied into the application's output folder by the build.
         services.AddSingleton(serviceProvider => new SavedReviewPublisher(
-            Path.Combine(DataDirectoryPath.Resolve(serviceProvider), SavedReviewPublisher.DirectoryName)));
+            Path.Combine(DataDirectoryPath.Resolve(serviceProvider), SavedReviewPublisher.DirectoryName),
+            serviceProvider.GetRequiredService<ILogger<SavedReviewPublisher>>()));
 
         // The source's client, but with the write token, and a request that changes something is not retried: a
         // review that timed out may still have been created. The next publishing checks the pull request for it

@@ -1,4 +1,5 @@
 using System.Text.Json;
+using Microsoft.Extensions.Logging.Abstractions;
 using ReviewAgent.Application.Reviews.Publishing;
 using ReviewAgent.Domain.Reviews;
 using ReviewAgent.Infrastructure.SourceControl.GitHub;
@@ -22,7 +23,7 @@ public sealed class SavedReviewPublisherTests : IDisposable
     private string PublishedFile =>
         Path.Combine(_root.Path, "test", "demo", "1", $"{_runId}.json");
 
-    private SavedReviewPublisher Publisher => new(_root.Path);
+    private SavedReviewPublisher Publisher => new(_root.Path, NullLogger<SavedReviewPublisher>.Instance);
 
     [Fact]
     public async Task Review_is_written_as_the_request_GitHub_would_get()

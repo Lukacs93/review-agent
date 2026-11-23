@@ -1,6 +1,7 @@
 using ReviewAgent.Application.Interfaces;
 using ReviewAgent.Application.Reviews.Commands.PublishReview;
 using ReviewAgent.Application.Reviews.Scheduling;
+using ReviewAgent.Infrastructure.Logging;
 
 namespace ReviewAgent.Api.Publishing;
 
@@ -18,6 +19,9 @@ internal sealed partial class PublishingWorker(
         await foreach (var runId in scheduledRuns.ReadAllAsync(stoppingToken))
         {
             await using var scope = scopeFactory.CreateAsyncScope();
+
+            // Everything logged from here on, the error below too, goes into the run's log.
+            using var logScope = logger.BeginReviewRunScope(runId);
 
             try
             {

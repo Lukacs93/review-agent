@@ -4,8 +4,10 @@ using ReviewAgent.Infrastructure.Persistence.RunLog;
 namespace ReviewAgent.Infrastructure.Logging;
 
 /// <summary>
-/// A logging provider that keeps the log lines written while a review run is running: the lines inside a log scope
-/// with the run's ID. Other lines are left to the other providers (console, OpenTelemetry).
+/// A logging provider that keeps the log lines written while work is done on a review run, its review or its
+/// publishing: the lines inside the scope opened by
+/// <see cref="ReviewRunLogScopeExtensions.BeginReviewRunScope"/>. Other lines are left to the other providers
+/// (console, OpenTelemetry).
 /// </summary>
 // The .NET way to add a log destination: a provider the logger factory sends every line to, and scopes through
 // ISupportExternalScope. "RunLog" is its name in the Logging section of the configuration.
