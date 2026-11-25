@@ -69,7 +69,11 @@ public sealed class SavedPullRequestSourceTests : IDisposable
     [Fact]
     public async Task File_is_read_from_the_saved_repository()
     {
-        var content = await Source.GetFileAsync(PullRequest, ChangedFilePath, CancellationToken.None);
+        var content = await Source.GetFileAsync(
+            PullRequest,
+            RepositoryVersion.PullRequest,
+            ChangedFilePath,
+            CancellationToken.None);
 
         Assert.Equal(ChangedFileContent, content);
     }
@@ -77,7 +81,11 @@ public sealed class SavedPullRequestSourceTests : IDisposable
     [Fact]
     public async Task Missing_file_returns_null()
     {
-        var content = await Source.GetFileAsync(PullRequest, "src/Missing.cs", CancellationToken.None);
+        var content = await Source.GetFileAsync(
+            PullRequest,
+            RepositoryVersion.PullRequest,
+            "src/Missing.cs",
+            CancellationToken.None);
 
         Assert.Null(content);
     }
@@ -89,7 +97,7 @@ public sealed class SavedPullRequestSourceTests : IDisposable
     public async Task Path_outside_the_repository_is_rejected(string path)
     {
         var error = await Assert.ThrowsAsync<ArgumentException>(
-            () => Source.GetFileAsync(PullRequest, path, CancellationToken.None));
+            () => Source.GetFileAsync(PullRequest, RepositoryVersion.PullRequest, path, CancellationToken.None));
 
         Assert.StartsWith(SavedPullRequestErrors.PathOutsideRepository(path), error.Message, StringComparison.Ordinal);
     }
@@ -100,7 +108,7 @@ public sealed class SavedPullRequestSourceTests : IDisposable
         var path = Path.Combine(_root.Path, PullRequestFolder, "pull-request.json");
 
         await Assert.ThrowsAsync<ArgumentException>(
-            () => Source.GetFileAsync(PullRequest, path, CancellationToken.None));
+            () => Source.GetFileAsync(PullRequest, RepositoryVersion.PullRequest, path, CancellationToken.None));
     }
 
     public void Dispose() => _root.Dispose();

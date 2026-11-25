@@ -70,13 +70,20 @@ internal sealed class GitHubPullRequestSource(HttpClient httpClient) : IPullRequ
 
     public async Task<string?> GetFileAsync(
         PullRequestRef pullRequest,
+        RepositoryVersion version,
         string path,
         CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(pullRequest);
         ArgumentNullException.ThrowIfNull(path);
 
-        using var request = new HttpRequestMessage(HttpMethod.Get, ContentUri(pullRequest, path));
+        // Checked before anything is sent, so an invalid path never reaches GitHub.
+        var escapedPath = EscapePath(path);
+        var escapedRef = version == RepositoryVersion.Base
+            ? Uri.EscapeDataString(await GetBaseBranchAsync(pullRequest, cancellationToken))
+            : PullRequestHeadRef(pullRequest);
+
+        using var request = new HttpRequestMessage(HttpMethod.Get, ContentUri(pullRequest, escapedPath, escapedRef));
         request.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue(RawContentMediaType));
 
         using var response = await httpClient.SendAsync(request, cancellationToken);
@@ -87,6 +94,14 @@ internal sealed class GitHubPullRequestSource(HttpClient httpClient) : IPullRequ
 
         response.EnsureSuccessStatusCode();
         return await response.Content.ReadAsStringAsync(cancellationToken);
+    }
+
+    // Asked for each file read from the base: only the rules file is, so a cache is not worth it.
+    private async Task<string> GetBaseBranchAsync(PullRequestRef pullRequest, CancellationToken cancellationToken)
+    {
+        var details = await GetJsonAsync<GitHubPullRequest>(PullRequestUri(pullRequest), cancellationToken)
+            ?? throw new PullRequestNotFoundException(SourceControlErrors.PullRequestNotFound(pullRequest));
+        return details.Base.Ref;
     }
 
     private async Task<List<ChangedFile>> GetChangedFilesAsync(
@@ -149,11 +164,13 @@ internal sealed class GitHubPullRequestSource(HttpClient httpClient) : IPullRequ
             CultureInfo.InvariantCulture,
             $"{RepositoryPath(pullRequest)}/pulls/{pullRequest.Number}/files"));
 
-    // "refs/pull/{number}/head" is the pull request's latest commit, also when it comes from a fork.
-    private static Uri ContentUri(PullRequestRef pullRequest, string path) =>
-        Relative(string.Create(
-            CultureInfo.InvariantCulture,
-            $"{RepositoryPath(pullRequest)}/contents/{EscapePath(path)}?ref=refs/pull/{pullRequest.Number}/head"));
+    // The pull request's latest commit, also when it comes from a fork. Safe in a URL as it is.
+    private static string PullRequestHeadRef(PullRequestRef pullRequest) =>
+        string.Create(CultureInfo.InvariantCulture, $"refs/pull/{pullRequest.Number}/head");
+
+    // A branch name may hold characters with a meaning in a URL, such as '#' or '&', so it comes escaped.
+    private static Uri ContentUri(PullRequestRef pullRequest, string escapedPath, string escapedRef) =>
+        Relative($"{RepositoryPath(pullRequest)}/contents/{escapedPath}?ref={escapedRef}");
 
     // Owner and repository are safe in a URL as they are: PullRequestRef only accepts GitHub-style names.
     private static string RepositoryPath(PullRequestRef pullRequest) =>

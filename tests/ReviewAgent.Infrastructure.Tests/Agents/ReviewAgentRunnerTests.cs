@@ -128,7 +128,7 @@ public sealed class ReviewAgentRunnerTests : IDisposable
         var model = new ScriptedChatClient(ScriptedChatClient.Answers(Summary));
         var runId = await StartRunAsync();
 
-        await Runner(() => model, rulesMarkdown: null).ReviewAsync(runId, CancellationToken.None);
+        await Runner(() => model, baseRulesMarkdown: null).ReviewAsync(runId, CancellationToken.None);
 
         var run = await LoadAsync(runId);
         Assert.Equal(ReviewStatus.Failed, run.Status);
@@ -308,11 +308,15 @@ public sealed class ReviewAgentRunnerTests : IDisposable
 
     private ReviewAgentRunner Runner(
         Func<IChatClient> createModel,
-        string? rulesMarkdown = TestData.RulesMarkdown,
-        bool verifierEnabled = false) =>
+        string? baseRulesMarkdown = TestData.RulesMarkdown,
+        bool verifierEnabled = false,
+        string? pullRequestRulesMarkdown = TestData.RulesMarkdown) =>
         new(
             _repository,
-            new FakePullRequestSource(TestData.PullRequest(FilePath, Patch), rulesMarkdown),
+            new FakePullRequestSource(
+                TestData.PullRequest(FilePath, Patch),
+                baseRulesMarkdown,
+                pullRequestRulesMarkdown),
             new InMemoryToolsConnector(),
             new FakeChatClientFactory(createModel),
             new ReviewAgentCommands(
@@ -345,16 +349,30 @@ public sealed class ReviewAgentRunnerTests : IDisposable
     private async Task<ReviewRun> LoadAsync(Guid runId) =>
         await _repository.GetAsync(new ReviewRunId(runId), CancellationToken.None);
 
-    private sealed class FakePullRequestSource(PullRequestSnapshot snapshot, string? rulesMarkdown)
-        : IPullRequestSource
+    // The rules can differ between the base and the pull request, as when a pull request changes them.
+    private sealed class FakePullRequestSource(
+        PullRequestSnapshot snapshot,
+        string? baseRulesMarkdown,
+        string? pullRequestRulesMarkdown) : IPullRequestSource
     {
         public Task<PullRequestSnapshot> GetPullRequestAsync(
             PullRequestRef pullRequest,
             CancellationToken cancellationToken) =>
             Task.FromResult(snapshot);
 
-        public Task<string?> GetFileAsync(PullRequestRef pullRequest, string path, CancellationToken cancellationToken) =>
-            Task.FromResult(path == RulesPath ? rulesMarkdown : null);
+        public Task<string?> GetFileAsync(
+            PullRequestRef pullRequest,
+            RepositoryVersion version,
+            string path,
+            CancellationToken cancellationToken)
+        {
+            if (path != RulesPath)
+            {
+                return Task.FromResult<string?>(null);
+            }
+
+            return Task.FromResult(version == RepositoryVersion.Base ? baseRulesMarkdown : pullRequestRulesMarkdown);
+        }
     }
 
     // Stands in for the MCP server: one read tool, enough to see that tool calls are recorded.

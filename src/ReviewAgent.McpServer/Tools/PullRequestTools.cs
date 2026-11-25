@@ -69,19 +69,19 @@ internal sealed class PullRequestTools(
         [Description("Path relative to the repository root, for example src/Orders.Api/Domain/Order.cs.")] string path,
         CancellationToken cancellationToken)
     {
-        var content = await ReadFileAsync(path, cancellationToken)
+        var content = await ReadFileAsync(RepositoryVersion.PullRequest, path, cancellationToken)
             ?? throw new McpException(ToolErrors.FileNotFound(path));
         return NumberedText.File(content);
     }
 
     [McpServerTool(Name = "get_team_rules", ReadOnly = true)]
     [Description(
-        "Returns the team's review rules. Every review comment must reference one of these rules by its ID, "
-        + "for example ARCH-01.")]
+        "Returns the team's review rules, as they are on the branch the pull request merges into. Every review "
+        + "comment must reference one of these rules by its ID, for example ARCH-01.")]
     public async Task<string> GetTeamRulesAsync(CancellationToken cancellationToken)
     {
         var rulesPath = teamRules.Value.TeamRulesPath;
-        return await ReadFileAsync(rulesPath, cancellationToken)
+        return await ReadFileAsync(RepositoryVersion.Base, rulesPath, cancellationToken)
             ?? throw new McpException(ToolErrors.TeamRulesNotFound(rulesPath));
     }
 
@@ -97,11 +97,14 @@ internal sealed class PullRequestTools(
         }
     }
 
-    private async Task<string?> ReadFileAsync(string path, CancellationToken cancellationToken)
+    private async Task<string?> ReadFileAsync(
+        RepositoryVersion version,
+        string path,
+        CancellationToken cancellationToken)
     {
         try
         {
-            return await source.GetFileAsync(reviewedPullRequest.Get(), path, cancellationToken);
+            return await source.GetFileAsync(reviewedPullRequest.Get(), version, path, cancellationToken);
         }
         catch (ArgumentException exception)
         {

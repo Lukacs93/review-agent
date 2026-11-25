@@ -3,6 +3,7 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
 using ReviewAgent.Application.Reviews.Publishing;
+using ReviewAgent.Application.SourceControl;
 using ReviewAgent.Domain.Reviews;
 using ReviewAgent.Infrastructure.SourceControl;
 using ReviewAgent.Infrastructure.SourceControl.GitHub;
@@ -47,7 +48,7 @@ public sealed class GitHubTokenTests : IDisposable
         _handler.Respond(OrderContentPath, HttpStatusCode.OK, "public sealed class Order;");
         var source = _services.GetRequiredService<GitHubPullRequestSource>();
 
-        await source.GetFileAsync(_pullRequest, "src/Order.cs", CancellationToken.None);
+        await source.GetFileAsync(_pullRequest, RepositoryVersion.PullRequest, "src/Order.cs", CancellationToken.None);
 
         Assert.Equal(ReadToken, Assert.Single(_handler.Requests).Headers.Authorization?.Parameter);
     }

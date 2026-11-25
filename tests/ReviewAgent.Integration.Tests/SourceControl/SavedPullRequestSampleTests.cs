@@ -29,11 +29,15 @@ public sealed class SavedPullRequestSampleTests(ReviewAgentApiFactory factory) :
     }
 
     [Fact]
-    public async Task Team_rules_are_in_the_sample_repository()
+    public async Task Team_rules_are_in_the_sample_base()
     {
         var source = factory.Services.GetRequiredService<IPullRequestSource>();
 
-        var rules = await source.GetFileAsync(SamplePullRequest, ".review/rules.md", CancellationToken.None);
+        var rules = await source.GetFileAsync(
+            SamplePullRequest,
+            RepositoryVersion.Base,
+            ".review/rules.md",
+            CancellationToken.None);
 
         Assert.NotNull(rules);
         Assert.Contains("### ARCH-01", rules, StringComparison.Ordinal);

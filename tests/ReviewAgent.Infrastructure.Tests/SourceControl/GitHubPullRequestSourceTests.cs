@@ -122,7 +122,11 @@ public sealed class GitHubPullRequestSourceTests : IDisposable
     {
         _handler.Respond(OrderContentPath, HttpStatusCode.OK, "public sealed class Order;");
 
-        var content = await Source.GetFileAsync(PullRequest, "src/Order.cs", CancellationToken.None);
+        var content = await Source.GetFileAsync(
+            PullRequest,
+            RepositoryVersion.PullRequest,
+            "src/Order.cs",
+            CancellationToken.None);
 
         Assert.Equal("public sealed class Order;", content);
         var request = Assert.Single(_handler.Requests);
@@ -132,7 +136,11 @@ public sealed class GitHubPullRequestSourceTests : IDisposable
     [Fact]
     public async Task Missing_file_returns_null()
     {
-        var content = await Source.GetFileAsync(PullRequest, "src/Missing.cs", CancellationToken.None);
+        var content = await Source.GetFileAsync(
+            PullRequest,
+            RepositoryVersion.PullRequest,
+            "src/Missing.cs",
+            CancellationToken.None);
 
         Assert.Null(content);
     }
@@ -140,7 +148,7 @@ public sealed class GitHubPullRequestSourceTests : IDisposable
     [Fact]
     public async Task File_path_is_escaped_in_the_url()
     {
-        await Source.GetFileAsync(PullRequest, "src/My File.cs", CancellationToken.None);
+        await Source.GetFileAsync(PullRequest, RepositoryVersion.PullRequest, "src/My File.cs", CancellationToken.None);
 
         var request = Assert.Single(_handler.Requests);
         Assert.Equal(
@@ -159,7 +167,7 @@ public sealed class GitHubPullRequestSourceTests : IDisposable
     public async Task Invalid_path_is_rejected_without_calling_github(string path)
     {
         var error = await Assert.ThrowsAsync<ArgumentException>(
-            () => Source.GetFileAsync(PullRequest, path, CancellationToken.None));
+            () => Source.GetFileAsync(PullRequest, RepositoryVersion.PullRequest, path, CancellationToken.None));
 
         Assert.StartsWith(GitHubErrors.InvalidPath(path), error.Message, StringComparison.Ordinal);
         Assert.Empty(_handler.Requests);
@@ -168,7 +176,7 @@ public sealed class GitHubPullRequestSourceTests : IDisposable
     [Fact]
     public async Task Requests_carry_the_token_and_the_required_headers()
     {
-        await Source.GetFileAsync(PullRequest, "src/Order.cs", CancellationToken.None);
+        await Source.GetFileAsync(PullRequest, RepositoryVersion.PullRequest, "src/Order.cs", CancellationToken.None);
 
         var request = Assert.Single(_handler.Requests);
         Assert.Equal("Bearer", _client.DefaultRequestHeaders.Authorization?.Scheme);
