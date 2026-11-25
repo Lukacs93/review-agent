@@ -26,6 +26,18 @@ on:
         description: The environment whose reviewers approve publishing.
         type: string
         default: review-publishing
+      team-rules-path:
+        description: The team's rules file in the reviewed repository, read from the branch a pull request merges into.
+        type: string
+        default: .review/rules.md
+      model-endpoint:
+        description: The base URL of the model's OpenAI-compatible API; empty keeps review-agent's own setting.
+        type: string
+        default: ""
+      model:
+        description: The model's name at that API; empty keeps review-agent's own setting.
+        type: string
+        default: ""
     secrets:
       model-api-key:
         description: The API key of the model the agents call.
@@ -37,7 +49,11 @@ env:
   # The event store, inside WORK_DIRECTORY (an env value cannot refer to another at the same level).
   Storage__DataDirectory: ${{ github.workspace }}/review-agent-work/data
   PullRequests__Source: GitHub
+  PullRequests__TeamRulesPath: ${{ inputs.team-rules-path }}
   Agent__ApiKey: ${{ secrets.model-api-key }}
+  # Passed on by start-services.sh only when set: an empty setting would replace review-agent's own with nothing.
+  REVIEW_AGENT_MODEL_ENDPOINT: ${{ inputs.model-endpoint }}
+  REVIEW_AGENT_MODEL: ${{ inputs.model }}
 
 jobs:
   review:

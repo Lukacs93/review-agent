@@ -2,6 +2,7 @@
 # Builds review-agent and starts the MCP server and the API in the background, as the AppHost does locally, then
 # waits until both answer their health checks. Every setting comes from environment variables
 # (PullRequests__Source, Agent__ApiKey, Storage__DataDirectory and the others the workflow sets).
+# REVIEW_AGENT_MODEL_ENDPOINT and REVIEW_AGENT_MODEL, when set, replace the model review-agent is set up with.
 #
 # Usage: start-services.sh <review-agent checkout> <log directory>
 set -euo pipefail
@@ -16,6 +17,14 @@ api_url="http://localhost:5080"
 # Both start in a few seconds once built; 60 tries two seconds apart leave room for a slow runner.
 health_check_tries=60
 health_check_delay_seconds=2
+
+# Only a value that is set replaces review-agent's own setting; an empty one would leave the API without a model.
+if [[ -n "${REVIEW_AGENT_MODEL_ENDPOINT:-}" ]]; then
+  export Agent__Endpoint="$REVIEW_AGENT_MODEL_ENDPOINT"
+fi
+if [[ -n "${REVIEW_AGENT_MODEL:-}" ]]; then
+  export Agent__Model="$REVIEW_AGENT_MODEL"
+fi
 
 mkdir -p "$log_directory"
 dotnet build "$repository_root/ReviewAgent.slnx" --configuration Release
