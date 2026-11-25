@@ -1,0 +1,128 @@
+# Reviews a pull request with review-agent, from another repository's workflow (a reusable workflow). The review job
+# runs the agents and writes the result to the job summary; the publish job waits for a person to approve it in the
+# calling repository's environment, then publishes the review on the pull request.
+#
+# The calling repository needs:
+# - a secret with the model's API key, passed as model-api-key;
+# - an environment (review-publishing by default) with required reviewers: the human approval before publishing.
+name: Review pull request
+
+on:
+  workflow_call:
+    inputs:
+      pull-request-number:
+        description: The pull request to review.
+        required: true
+        type: number
+      agent-repository:
+        description: The review-agent repository to run.
+        type: string
+        default: Lukacs93/review-agent
+      agent-ref:
+        description: The branch, tag or commit of review-agent to run.
+        type: string
+        default: main
+      publishing-environment:
+        description: The environment whose reviewers approve publishing.
+        type: string
+        default: review-publishing
+    secrets:
+      model-api-key:
+        description: The API key of the model the agents call.
+        required: true
+
+env:
+  # Everything the run leaves for the publish job: the event store, the review's JSON and the logs.
+  WORK_DIRECTORY: ${{ github.workspace }}/review-agent-work
+  # The event store, inside WORK_DIRECTORY (an env value cannot refer to another at the same level).
+  Storage__DataDirectory: ${{ github.workspace }}/review-agent-work/data
+  PullRequests__Source: GitHub
+  Agent__ApiKey: ${{ secrets.model-api-key }}
+
+jobs:
+  review:
+    name: Review
+    runs-on: ubuntu-latest
+    # The build takes a few minutes and the agents stop on their own after Agent:Timeout (5 minutes by default);
+    # this only ends a job that hangs for another reason.
+    timeout-minutes: 20
+    permissions:
+      contents: read
+      pull-requests: read
+    outputs:
+      run-id: ${{ steps.review.outputs.run-id }}
+    env:
+      # The job's own token, which can only read here; the API needs a write token to start, so it gets this one.
+      PullRequests__GitHub__ReadToken: ${{ github.token }}
+      PullRequests__GitHub__WriteToken: ${{ github.token }}
+
+    steps:
+      - name: Check out review-agent
+        uses: actions/checkout@v6
+        with:
+          repository: ${{ inputs.agent-repository }}
+          ref: ${{ inputs.agent-ref }}
+          path: review-agent
+
+      - name: Set up .NET
+        uses: actions/setup-dotnet@v5
+        with:
+          global-json-file: review-agent/global.json
+
+      - name: Start the MCP server and the API
+        run: bash review-agent/ci/start-services.sh review-agent "$WORK_DIRECTORY/logs"
+
+      - name: Review the pull request
+        id: review
+        run: >-
+          bash review-agent/ci/review-pull-request.sh
+          "${{ github.repository_owner }}" "${{ github.event.repository.name }}"
+          "${{ inputs.pull-request-number }}" "$WORK_DIRECTORY/output"
+
+      - name: Keep the run for publishing
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: review-${{ inputs.pull-request-number }}
+          path: ${{ env.WORK_DIRECTORY }}
+
+  publish:
+    name: Publish
+    needs: review
+    runs-on: ubuntu-latest
+    # The build and one request to GitHub; the wait for the approval comes before the job starts and is not counted.
+    timeout-minutes: 20
+    # The human approval: the job waits until a reviewer of the environment approves it.
+    environment: ${{ inputs.publishing-environment }}
+    permissions:
+      contents: read
+      pull-requests: write
+    env:
+      # The job's own token, which can write review comments here.
+      PullRequests__GitHub__ReadToken: ${{ github.token }}
+      PullRequests__GitHub__WriteToken: ${{ github.token }}
+
+    steps:
+      - name: Check out review-agent
+        uses: actions/checkout@v6
+        with:
+          repository: ${{ inputs.agent-repository }}
+          ref: ${{ inputs.agent-ref }}
+          path: review-agent
+
+      - name: Set up .NET
+        uses: actions/setup-dotnet@v5
+        with:
+          global-json-file: review-agent/global.json
+
+      - name: Get the run of the review job
+        uses: actions/download-artifact@v8
+        with:
+          name: review-${{ inputs.pull-request-number }}
+          path: ${{ env.WORK_DIRECTORY }}
+
+      - name: Start the MCP server and the API
+        run: bash review-agent/ci/start-services.sh review-agent "$WORK_DIRECTORY/logs"
+
+      - name: Publish the review
+        run: bash review-agent/ci/publish-review.sh "${{ needs.review.outputs.run-id }}"
