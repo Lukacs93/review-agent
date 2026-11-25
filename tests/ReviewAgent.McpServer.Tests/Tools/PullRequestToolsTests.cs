@@ -16,7 +16,7 @@ public sealed class PullRequestToolsTests(WebApplicationFactory<Program> factory
     private const string PullRequestHeader = "X-Review-Pull-Request";
     private const string SamplePullRequest = "Lukacs93/review-agent-demo/1";
 
-    // The second sample, whose rules include business rules and point to a template file.
+    // The second sample, whose rules include business rules with a template.
     private const string BusinessRulesPullRequest = "Lukacs93/review-agent-demo/2";
 
     [Fact]
@@ -139,6 +139,18 @@ public sealed class PullRequestToolsTests(WebApplicationFactory<Program> factory
         Assert.Contains("### ARCH-01", TextOf(result), StringComparison.Ordinal);
     }
 
+    // The first sample's pull request still has the older rules, without SEC-01; the branch it merges into has it.
+    [Fact]
+    public async Task Team_rules_come_from_the_branch_the_pull_request_merges_into()
+    {
+        await using var client = await ConnectAsync(SamplePullRequest);
+
+        var result = await CallAsync(client, "get_team_rules");
+
+        AssertSucceeded(result);
+        Assert.Contains("### SEC-01", TextOf(result), StringComparison.Ordinal);
+    }
+
     [Fact]
     public async Task Without_the_pull_request_header_tools_fail()
     {
@@ -174,21 +186,9 @@ public sealed class PullRequestToolsTests(WebApplicationFactory<Program> factory
         Assert.Contains("### SEC-01", text, StringComparison.Ordinal);
         Assert.Contains("### NAME-01", text, StringComparison.Ordinal);
         Assert.Contains("### BIZ-01", text, StringComparison.Ordinal);
-        Assert.Contains(".review/templates/OrderPriority.cs", text, StringComparison.Ordinal);
-    }
-
-    // A rule points to a template outside the diff; the model reads it like any other file.
-    [Fact]
-    public async Task Template_a_rule_points_to_is_read_with_get_file()
-    {
-        await using var client = await ConnectAsync(BusinessRulesPullRequest);
-
-        var result = await CallAsync(client, "get_file", ("path", ".review/templates/OrderPriority.cs"));
-
-        AssertSucceeded(result);
         Assert.Contains(
             ".OrderByDescending(order => tiers.IsPriority(order.CustomerId))",
-            TextOf(result),
+            text,
             StringComparison.Ordinal);
     }
 

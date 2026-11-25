@@ -24,5 +24,6 @@ internal static class ToolErrors
     public static string FileNotFound(string path) => $"There is no file '{path}' in the pull request.";
 
     public static string TeamRulesNotFound(string path) =>
-        $"The repository has no team rules file at '{path}'. Review without team rules and say so in the summary.";
+        $"The branch the pull request merges into has no team rules file at '{path}'. Review without team rules and "
+        + "say so in the summary.";
 }

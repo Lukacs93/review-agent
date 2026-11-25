@@ -14,6 +14,9 @@ public sealed class SavedPullRequestSourceTests : IDisposable
     private const string PullRequestFolder = "test/demo/1";
     private const string ChangedFilePath = "src/Order.cs";
     private const string ChangedFileContent = "public sealed class Order;";
+    private const string RulesPath = ".review/rules.md";
+    private const string BaseRules = "### ARCH-01";
+    private const string ChangedRules = "### ARCH-01 changed by the pull request";
 
     private const string PullRequestJson = """
         {
@@ -33,6 +36,8 @@ public sealed class SavedPullRequestSourceTests : IDisposable
     {
         _root.WriteFile($"{PullRequestFolder}/pull-request.json", PullRequestJson);
         _root.WriteFile($"{PullRequestFolder}/repository/{ChangedFilePath}", ChangedFileContent);
+        _root.WriteFile($"{PullRequestFolder}/repository/{RulesPath}", ChangedRules);
+        _root.WriteFile($"{PullRequestFolder}/base/{RulesPath}", BaseRules);
     }
 
     private static PullRequestRef PullRequest => new(RepositoryOwner, RepositoryName, PullRequestNumber);
@@ -69,15 +74,31 @@ public sealed class SavedPullRequestSourceTests : IDisposable
     [Fact]
     public async Task File_is_read_from_the_saved_repository()
     {
-        var content = await Source.GetFileAsync(PullRequest, ChangedFilePath, CancellationToken.None);
+        var content = await Source.GetFileAsync(
+            PullRequest,
+            RepositoryVersion.PullRequest,
+            ChangedFilePath,
+            CancellationToken.None);
 
         Assert.Equal(ChangedFileContent, content);
     }
 
     [Fact]
+    public async Task File_of_the_base_is_read_from_the_saved_base()
+    {
+        var content = await Source.GetFileAsync(PullRequest, RepositoryVersion.Base, RulesPath, CancellationToken.None);
+
+        Assert.Equal(BaseRules, content);
+    }
+
+    [Fact]
     public async Task Missing_file_returns_null()
     {
-        var content = await Source.GetFileAsync(PullRequest, "src/Missing.cs", CancellationToken.None);
+        var content = await Source.GetFileAsync(
+            PullRequest,
+            RepositoryVersion.PullRequest,
+            "src/Missing.cs",
+            CancellationToken.None);
 
         Assert.Null(content);
     }
@@ -89,7 +110,7 @@ public sealed class SavedPullRequestSourceTests : IDisposable
     public async Task Path_outside_the_repository_is_rejected(string path)
     {
         var error = await Assert.ThrowsAsync<ArgumentException>(
-            () => Source.GetFileAsync(PullRequest, path, CancellationToken.None));
+            () => Source.GetFileAsync(PullRequest, RepositoryVersion.PullRequest, path, CancellationToken.None));
 
         Assert.StartsWith(SavedPullRequestErrors.PathOutsideRepository(path), error.Message, StringComparison.Ordinal);
     }
@@ -100,7 +121,7 @@ public sealed class SavedPullRequestSourceTests : IDisposable
         var path = Path.Combine(_root.Path, PullRequestFolder, "pull-request.json");
 
         await Assert.ThrowsAsync<ArgumentException>(
-            () => Source.GetFileAsync(PullRequest, path, CancellationToken.None));
+            () => Source.GetFileAsync(PullRequest, RepositoryVersion.PullRequest, path, CancellationToken.None));
     }
 
     public void Dispose() => _root.Dispose();

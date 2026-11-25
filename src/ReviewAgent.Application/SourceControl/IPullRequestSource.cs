@@ -15,8 +15,12 @@ public interface IPullRequestSource
     Task<PullRequestSnapshot> GetPullRequestAsync(PullRequestRef pullRequest, CancellationToken cancellationToken);
 
     /// <summary>
-    /// The content of a file as it is in the pull request (its head), or <see langword="null"/> if there is no
-    /// such file. The path is relative to the repository root.
+    /// The content of a file in the given version of the repository, or <see langword="null"/> if there is no such
+    /// file. The path is relative to the repository root.
     /// </summary>
-    Task<string?> GetFileAsync(PullRequestRef pullRequest, string path, CancellationToken cancellationToken);
+    Task<string?> GetFileAsync(
+        PullRequestRef pullRequest,
+        RepositoryVersion version,
+        string path,
+        CancellationToken cancellationToken);
 }

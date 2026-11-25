@@ -42,6 +42,7 @@ public sealed class PullRequestSourceSelectionTests
 
         var content = await source.GetFileAsync(
             new PullRequestRef("test", "demo", 1),
+            RepositoryVersion.PullRequest,
             "src/Order.cs",
             CancellationToken.None);
 

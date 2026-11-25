@@ -42,7 +42,8 @@ internal static class AgentErrors
         $"Note: the comments were not double-checked, because the verification failed: {reason}";
 
     public static string TeamRulesNotFound(string path) =>
-        $"The repository has no team rules file at '{path}', so there is nothing to review against.";
+        $"The branch the pull request merges into has no team rules file at '{path}', so there is nothing to "
+        + "review against.";
 
     public static string TimedOut(TimeSpan timeout) =>
         string.Create(CultureInfo.InvariantCulture, $"The review did not finish within {timeout} (Agent:Timeout).");

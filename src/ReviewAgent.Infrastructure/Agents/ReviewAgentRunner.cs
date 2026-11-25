@@ -96,7 +96,11 @@ internal sealed partial class ReviewAgentRunner(
         // Read here too, so propose_comment can check the model's comments against the pull request and the rules.
         var snapshot = await pullRequestSource.GetPullRequestAsync(pullRequest, cancellationToken);
         var rulesPath = teamRules.Value.TeamRulesPath;
-        var rulesMarkdown = await pullRequestSource.GetFileAsync(pullRequest, rulesPath, cancellationToken)
+        var rulesMarkdown = await pullRequestSource.GetFileAsync(
+                pullRequest,
+                RepositoryVersion.Base,
+                rulesPath,
+                cancellationToken)
             ?? throw new InvalidOperationException(AgentErrors.TeamRulesNotFound(rulesPath));
         var rules = MarkdownRuleSetParser.Parse(rulesMarkdown);
 

@@ -11,13 +11,14 @@ namespace ReviewAgent.Infrastructure.SourceControl.Saved;
 /// <summary>
 /// Reads pull requests saved to disk, so the agent can run without GitHub and every run sees the same input.
 /// Layout under the root directory: <c>{owner}/{repository}/{number}/</c> holds <c>pull-request.json</c>
-/// (title, description, changed files with their diffs) and <c>repository/</c>, the files as they are in the
-/// pull request.
+/// (title, description, changed files with their diffs), <c>repository/</c>, the files as they are in the pull
+/// request, and <c>base/</c>, the team's rules file as it is on the branch the pull request merges into.
 /// </summary>
 internal sealed class SavedPullRequestSource(string rootDirectory) : IPullRequestSource
 {
     private const string PullRequestFileName = "pull-request.json";
     private const string RepositoryDirectoryName = "repository";
+    private const string BaseDirectoryName = "base";
 
     private static readonly JsonSerializerOptions _jsonOptions = new(JsonSerializerDefaults.Web)
     {
@@ -45,6 +46,7 @@ internal sealed class SavedPullRequestSource(string rootDirectory) : IPullReques
 
     public async Task<string?> GetFileAsync(
         PullRequestRef pullRequest,
+        RepositoryVersion version,
         string path,
         CancellationToken cancellationToken)
     {
@@ -52,7 +54,9 @@ internal sealed class SavedPullRequestSource(string rootDirectory) : IPullReques
         ArgumentNullException.ThrowIfNull(path);
 
         // The path comes from the agent, so it must not lead out of the saved repository ("../", absolute paths).
-        var repositoryDirectory = Path.Combine(DirectoryOf(pullRequest), RepositoryDirectoryName);
+        var repositoryDirectory = Path.Combine(
+            DirectoryOf(pullRequest),
+            version == RepositoryVersion.Base ? BaseDirectoryName : RepositoryDirectoryName);
         var file = Path.GetFullPath(Path.Combine(repositoryDirectory, path));
         if (!IsInside(file, repositoryDirectory))
         {
