@@ -11,7 +11,8 @@ public sealed class ReviewComment
         RuleId rule,
         Severity severity,
         string body,
-        string? suggestedFix)
+        string? suggestedFix,
+        string? replacementCode)
     {
         Id = id;
         Location = location;
@@ -20,6 +21,8 @@ public sealed class ReviewComment
         ProposedBody = body;
         Body = body;
         SuggestedFix = suggestedFix;
+        ProposedReplacementCode = replacementCode;
+        ReplacementCode = replacementCode;
         Decision = CommentDecision.Pending;
     }
 
@@ -37,7 +40,22 @@ public sealed class ReviewComment
     /// <summary>The text that will be published: the proposed text, or the developer's edit.</summary>
     public string Body { get; private set; }
 
+    /// <summary>
+    /// The fix as free text, from comments proposed before <see cref="ReplacementCode"/>; published as text.
+    /// </summary>
     public string? SuggestedFix { get; }
+
+    /// <summary>
+    /// The code the agent proposed to replace the comment's line with; <see langword="null"/> when the fix is not on
+    /// that line alone.
+    /// </summary>
+    public string? ProposedReplacementCode { get; }
+
+    /// <summary>
+    /// The code that will be published as a suggested change the pull request's author can apply with one click:
+    /// the proposed code, or the developer's edit; <see langword="null"/> for none.
+    /// </summary>
+    public string? ReplacementCode { get; private set; }
 
     public CommentDecision Decision { get; private set; }
 
@@ -57,12 +75,14 @@ public sealed class ReviewComment
     {
         Decision = CommentDecision.Approved;
         Body = ProposedBody;
+        ReplacementCode = ProposedReplacementCode;
     }
 
-    internal void Edit(string body)
+    internal void Edit(string body, string? replacementCode)
     {
         Decision = CommentDecision.Edited;
         Body = body;
+        ReplacementCode = replacementCode;
     }
 
     internal void Discard() => Decision = CommentDecision.Discarded;

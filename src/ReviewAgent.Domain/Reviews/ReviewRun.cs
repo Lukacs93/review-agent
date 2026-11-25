@@ -138,7 +138,7 @@ public sealed class ReviewRun
         RuleId rule,
         Severity severity,
         string body,
-        string? suggestedFix,
+        string? replacementCode,
         DateTimeOffset now)
     {
         ArgumentNullException.ThrowIfNull(location);
@@ -147,8 +147,16 @@ public sealed class ReviewRun
         EnsureNotBlank(body, ReviewRunErrors.CommentBodyRequired);
 
         var commentId = CommentId.New();
-        var fix = string.IsNullOrWhiteSpace(suggestedFix) ? null : suggestedFix.Trim();
-        Raise(new CommentProposed(Id, now, commentId, location, rule, severity, body.Trim(), fix));
+        Raise(new CommentProposed(
+            Id,
+            now,
+            commentId,
+            location,
+            rule,
+            severity,
+            body.Trim(),
+            SuggestedFix: null,
+            NormalizeReplacementCode(replacementCode)));
         return commentId;
     }
 
@@ -201,13 +209,30 @@ public sealed class ReviewRun
         Raise(new CommentApproved(Id, now, commentId));
     }
 
-    public void EditComment(CommentId commentId, string body, DateTimeOffset now)
+    /// <summary>
+    /// Approves a comment with the developer's text. The replacement code: <see langword="null"/> keeps the
+    /// proposed one, an empty or blank one removes it, any other replaces it.
+    /// </summary>
+    public void EditComment(CommentId commentId, string body, string? replacementCode, DateTimeOffset now)
     {
         EnsureCanDecide(commentId);
         EnsureNotBlank(body, ReviewRunErrors.EditedBodyRequired);
 
-        Raise(new CommentEdited(Id, now, commentId, body.Trim()));
+        // A developer who changes only the text must not lose the proposed code by leaving it out; removing it is
+        // a choice they make with an empty value.
+        var publishedCode = replacementCode is null
+            ? FindComment(commentId).ProposedReplacementCode
+            : NormalizeReplacementCode(replacementCode);
+        Raise(new CommentEdited(Id, now, commentId, body.Trim(), publishedCode));
     }
+
+    // Line breaks become '\n', whoever wrote the code (the agent or the developer, on any system), so a suggested
+    // change never brings other line endings into the file. The indentation is part of the code, so only the line
+    // breaks at the end are dropped.
+    private static string? NormalizeReplacementCode(string? replacementCode) =>
+        string.IsNullOrWhiteSpace(replacementCode)
+            ? null
+            : replacementCode.ReplaceLineEndings("\n").TrimEnd('\n');
 
     public void DiscardComment(CommentId commentId, DateTimeOffset now)
     {
@@ -320,7 +345,8 @@ public sealed class ReviewRun
                     proposed.Rule,
                     proposed.Severity,
                     proposed.Body,
-                    proposed.SuggestedFix));
+                    proposed.SuggestedFix,
+                    proposed.ReplacementCode));
                 break;
 
             case CommentRejected rejected:
@@ -347,7 +373,7 @@ public sealed class ReviewRun
                 break;
 
             case CommentEdited edited:
-                FindComment(edited.CommentId).Edit(edited.Body);
+                FindComment(edited.CommentId).Edit(edited.Body, edited.ReplacementCode);
                 break;
 
             case CommentDiscarded discarded:

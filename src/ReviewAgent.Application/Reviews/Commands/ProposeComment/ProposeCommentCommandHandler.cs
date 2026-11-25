@@ -18,7 +18,7 @@ public sealed class ProposeCommentCommandHandler(IReviewRunRepository repository
             new RuleId(command.RuleId),
             command.Severity,
             command.Body,
-            command.SuggestedFix,
+            command.ReplacementCode,
             timeProvider.GetUtcNow());
 
         await repository.SaveAsync(run, cancellationToken);

@@ -59,7 +59,7 @@ public sealed class ReviewInstructionsTests
             new RuleId("ARCH-01"),
             Severity.Error,
             "Use an application handler.",
-            suggestedFix: null,
+            replacementCode: null,
             DateTimeOffset.UtcNow);
 
         var task = ReviewInstructions.VerifierTaskPrompt(run.Comments);

@@ -251,7 +251,7 @@ public sealed class ReviewEndpointsTests(ReviewAgentApiFactory factory) : IClass
             new RuleId(Rule),
             Severity.Error,
             CommentBody,
-            suggestedFix: null,
+            replacementCode: null,
             now);
         run.Finish(Summary, CommitSha, now);
 

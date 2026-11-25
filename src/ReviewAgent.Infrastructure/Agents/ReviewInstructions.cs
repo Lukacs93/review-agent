@@ -1,6 +1,7 @@
 using System.Globalization;
 using ReviewAgent.Domain.Reviews;
 using ReviewAgent.Infrastructure.Agents.Errors;
+using ReviewAgent.Infrastructure.SourceControl;
 
 namespace ReviewAgent.Infrastructure.Agents;
 
@@ -51,11 +52,18 @@ internal static class ReviewInstructions
                 $"  file: {comment.Location.FilePath}, line: {comment.Location.Line}"),
             string.Create(CultureInfo.InvariantCulture, $"  rule: {comment.Rule}"),
             string.Create(CultureInfo.InvariantCulture, $"  comment: {comment.ProposedBody}"),
-        });
+        }.Concat(ReplacementLines(comment.ProposedReplacementCode)));
 
         var commentList = string.Join('\n', lines);
         return FillPlaceholder(_verifierTaskPrompt.Value, VerifierTaskPromptResource, CommentsPlaceholder, commentList);
     }
+
+    // The code that would replace the line, in the block it would be published in: the code keeps its own
+    // indentation, and the block shows where it starts and ends.
+    private static IEnumerable<string> ReplacementLines(string? replacementCode) =>
+        replacementCode is null
+            ? []
+            : ["  replacement code:", SuggestionBlock.Build(replacementCode)];
 
     /// <summary>
     /// Puts the value in place of the placeholder. A prompt file edited without its placeholder fails here, instead

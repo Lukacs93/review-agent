@@ -25,13 +25,13 @@ public sealed class ProposeCommentToolTests
     [Fact]
     public async Task Valid_comment_is_saved_with_the_severity_of_the_rule()
     {
-        var result = await Tool.ProposeAsync(FilePath, 11, LineElevenCode, "arch-01", CommentBody, "Inject a handler.");
+        var result = await Tool.ProposeAsync(FilePath, 11, LineElevenCode, "arch-01", CommentBody);
 
         Assert.Equal("Comment proposed.", result);
         var command = Assert.Single(_handler.Commands);
         Assert.Equal(
             new ProposeCommentCommand(
-                _runId, FilePath, 11, "ARCH-01", Severity.Error, CommentBody, "Inject a handler."),
+                _runId, FilePath, 11, "ARCH-01", Severity.Error, CommentBody, ReplacementCode: null),
             command);
     }
 

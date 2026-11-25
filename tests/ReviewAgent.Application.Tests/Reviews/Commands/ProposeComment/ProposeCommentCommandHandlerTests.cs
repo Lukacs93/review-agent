@@ -9,7 +9,7 @@ namespace ReviewAgent.Application.Tests.Reviews.Commands.ProposeComment;
 
 public sealed class ProposeCommentCommandHandlerTests
 {
-    private const string SuggestedFix = "Call an application handler instead.";
+    private const string ReplacementCode = "    GetOrderHandler getOrder) : ControllerBase";
 
     private readonly InMemoryReviewRunRepository _repository = new();
 
@@ -30,7 +30,7 @@ public sealed class ProposeCommentCommandHandlerTests
         Assert.Equal(new RuleId(TestReviewRuns.Rule), comment.Rule);
         Assert.Equal(Severity.Error, comment.Severity);
         Assert.Equal(TestReviewRuns.CommentBody, comment.Body);
-        Assert.Equal(SuggestedFix, comment.SuggestedFix);
+        Assert.Equal(ReplacementCode, comment.ReplacementCode);
     }
 
     [Fact]
@@ -63,5 +63,5 @@ public sealed class ProposeCommentCommandHandlerTests
             TestReviewRuns.Rule,
             Severity.Error,
             TestReviewRuns.CommentBody,
-            SuggestedFix);
+            ReplacementCode);
 }

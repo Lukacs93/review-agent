@@ -98,7 +98,9 @@ internal static class ReviewEndpoints
         ICommandHandler<EditCommentCommand> handler,
         CancellationToken cancellationToken)
     {
-        await handler.HandleAsync(new EditCommentCommand(runId, commentId, request.Body), cancellationToken);
+        await handler.HandleAsync(
+            new EditCommentCommand(runId, commentId, request.Body, request.ReplacementCode),
+            cancellationToken);
         return TypedResults.NoContent();
     }
 

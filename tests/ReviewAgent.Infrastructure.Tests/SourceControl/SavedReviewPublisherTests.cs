@@ -20,7 +20,15 @@ public sealed class SavedReviewPublisherTests : IDisposable
         new PullRequestRef("test", "demo", 1),
         ReviewedCommitSha: null,
         "One architecture issue.",
-        [new CommentToPublish("src/Order.cs", 12, "ARCH-01", "Use an application handler.", SuggestedFix: null)]);
+        [
+            new CommentToPublish(
+                "src/Order.cs",
+                12,
+                "ARCH-01",
+                "Use an application handler.",
+                SuggestedFix: null,
+                ReplacementCode: null),
+        ]);
 
     private string PublishedFile =>
         Path.Combine(_root.Path, "test", "demo", "1", $"{_runId}.json");

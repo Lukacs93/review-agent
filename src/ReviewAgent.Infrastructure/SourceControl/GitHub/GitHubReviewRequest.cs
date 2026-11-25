@@ -50,7 +50,11 @@ internal sealed record GitHubReviewRequest(
     private static GitHubReviewCommentRequest ToComment(CommentToPublish comment)
     {
         var body = new StringBuilder($"**{comment.Rule}**: {comment.Body}");
-        if (!string.IsNullOrWhiteSpace(comment.SuggestedFix))
+        if (comment.ReplacementCode is not null)
+        {
+            body.Append("\n\n").Append(SuggestionBlock.Build(comment.ReplacementCode));
+        }
+        else if (!string.IsNullOrWhiteSpace(comment.SuggestedFix))
         {
             body.Append("\n\nSuggested fix: ").Append(comment.SuggestedFix);
         }

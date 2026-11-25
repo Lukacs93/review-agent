@@ -228,7 +228,7 @@ public sealed class ReviewRunTests
     {
         var (run, commentIds) = FinishedRunWithComments(1);
 
-        run.EditComment(commentIds[0], "Move the discount calculation into Order.", Now);
+        run.EditComment(commentIds[0], "Move the discount calculation into Order.", replacementCode: null, Now);
 
         var comment = Assert.Single(run.Comments);
         Assert.Equal(CommentDecision.Edited, comment.Decision);
@@ -241,7 +241,9 @@ public sealed class ReviewRunTests
     {
         var (run, commentIds) = FinishedRunWithComments(1);
 
-        AssertFails(ReviewRunErrors.EditedBodyRequired, () => run.EditComment(commentIds[0], " ", Now));
+        AssertFails(
+            ReviewRunErrors.EditedBodyRequired,
+            () => run.EditComment(commentIds[0], " ", replacementCode: null, Now));
     }
 
     [Fact]
@@ -375,7 +377,7 @@ public sealed class ReviewRunTests
     {
         var (run, commentIds) = FinishedRunWithComments(2);
         run.ApproveComment(commentIds[0], Now);
-        run.EditComment(commentIds[1], "Rename Basket to Cart.", Now);
+        run.EditComment(commentIds[1], "Rename Basket to Cart.", replacementCode: null, Now);
         run.RequestPublishing(Now);
 
         run.MarkCommentPublished(commentIds[0], Now);
@@ -531,7 +533,7 @@ public sealed class ReviewRunTests
     {
         var (original, commentIds) = FinishedRunWithComments(2);
         original.ApproveComment(commentIds[0], Now);
-        original.EditComment(commentIds[1], "Rename Basket to Cart.", Now);
+        original.EditComment(commentIds[1], "Rename Basket to Cart.", replacementCode: null, Now);
 
         var rebuilt = ReviewRun.FromHistory(original.UncommittedEvents);
 
@@ -592,7 +594,7 @@ public sealed class ReviewRunTests
             new RuleId("ARCH-01"),
             Severity.Error,
             "The controller uses OrdersDbContext directly.",
-            "Call an application handler instead.",
+            replacementCode: null,
             Now);
 
     private static (ReviewRun Run, IReadOnlyList<CommentId> CommentIds) FinishedRunWithComments(int count)

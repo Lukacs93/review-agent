@@ -19,7 +19,9 @@ public sealed class EditCommentCommandHandlerTests
     {
         var (runId, commentId) = await TestReviewRuns.SaveFinishedRunWithOneCommentAsync(_repository);
 
-        await Handler.HandleAsync(new EditCommentCommand(runId, commentId, EditedBody), CancellationToken.None);
+        await Handler.HandleAsync(
+            new EditCommentCommand(runId, commentId, EditedBody, ReplacementCode: null),
+            CancellationToken.None);
 
         var run = await _repository.FindAsync(new ReviewRunId(runId), CancellationToken.None);
         Assert.NotNull(run);
@@ -35,7 +37,9 @@ public sealed class EditCommentCommandHandlerTests
         var (runId, commentId) = await TestReviewRuns.SaveFinishedRunWithOneCommentAsync(_repository);
 
         var error = await Assert.ThrowsAsync<DomainException>(
-            () => Handler.HandleAsync(new EditCommentCommand(runId, commentId, " "), CancellationToken.None));
+            () => Handler.HandleAsync(
+                new EditCommentCommand(runId, commentId, " ", ReplacementCode: null),
+                CancellationToken.None));
 
         Assert.Equal(ReviewRunErrors.EditedBodyRequired, error.Message);
     }

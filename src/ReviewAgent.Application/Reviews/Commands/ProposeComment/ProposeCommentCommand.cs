@@ -10,4 +10,4 @@ public sealed record ProposeCommentCommand(
     string RuleId,
     Severity Severity,
     string Body,
-    string? SuggestedFix);
+    string? ReplacementCode);

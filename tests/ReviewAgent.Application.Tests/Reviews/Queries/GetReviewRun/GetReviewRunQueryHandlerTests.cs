@@ -108,6 +108,6 @@ public sealed class GetReviewRunQueryHandlerTests
             new RuleId(TestReviewRuns.Rule),
             Severity.Error,
             TestReviewRuns.CommentBody,
-            suggestedFix: null,
+            replacementCode: null,
             TestReviewRuns.Now);
 }

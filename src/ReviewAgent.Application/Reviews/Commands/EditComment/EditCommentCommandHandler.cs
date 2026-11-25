@@ -11,7 +11,11 @@ public sealed class EditCommentCommandHandler(IReviewRunRepository repository, T
         ArgumentNullException.ThrowIfNull(command);
 
         var run = await repository.GetAsync(new ReviewRunId(command.RunId), cancellationToken);
-        run.EditComment(new CommentId(command.CommentId), command.Body, timeProvider.GetUtcNow());
+        run.EditComment(
+            new CommentId(command.CommentId),
+            command.Body,
+            command.ReplacementCode,
+            timeProvider.GetUtcNow());
         await repository.SaveAsync(run, cancellationToken);
     }
 }
