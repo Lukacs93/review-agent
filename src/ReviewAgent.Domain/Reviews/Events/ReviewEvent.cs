@@ -26,7 +26,11 @@ public sealed record ModelCalled(
     long? OutputTokens)
     : ReviewEvent(RunId, OccurredAt);
 
-/// <summary>The agent proposed a review comment.</summary>
+/// <summary>
+/// The agent proposed a review comment, with the code that replaces its line when the fix is on that line alone.
+/// </summary>
+// Stored data. Events stored before ReplacementCode have the fix as free text in SuggestedFix, which may be prose,
+// so it is kept as text; new events leave it empty.
 public sealed record CommentProposed(
     ReviewRunId RunId,
     DateTimeOffset OccurredAt,
@@ -35,7 +39,8 @@ public sealed record CommentProposed(
     RuleId Rule,
     Severity Severity,
     string Body,
-    string? SuggestedFix)
+    string? SuggestedFix,
+    string? ReplacementCode = null)
     : ReviewEvent(RunId, OccurredAt);
 
 /// <summary>The verifier agent rejected a proposed comment, so it will not reach the developer.</summary>
@@ -71,8 +76,17 @@ public sealed record ReviewFailed(ReviewRunId RunId, DateTimeOffset OccurredAt, 
 public sealed record CommentApproved(ReviewRunId RunId, DateTimeOffset OccurredAt, CommentId CommentId)
     : ReviewEvent(RunId, OccurredAt);
 
-/// <summary>A developer approved a comment with a rewritten body.</summary>
-public sealed record CommentEdited(ReviewRunId RunId, DateTimeOffset OccurredAt, CommentId CommentId, string Body)
+/// <summary>
+/// A developer approved a comment with a rewritten body, and with the replacement code they kept, rewrote or left
+/// out.
+/// </summary>
+// Stored data. Events stored before ReplacementCode have none, as comments had no replacement code then.
+public sealed record CommentEdited(
+    ReviewRunId RunId,
+    DateTimeOffset OccurredAt,
+    CommentId CommentId,
+    string Body,
+    string? ReplacementCode = null)
     : ReviewEvent(RunId, OccurredAt);
 
 /// <summary>A developer discarded a comment.</summary>

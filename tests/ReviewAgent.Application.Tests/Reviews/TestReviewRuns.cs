@@ -33,7 +33,7 @@ internal static class TestReviewRuns
             new RuleId(Rule),
             Severity.Error,
             CommentBody,
-            suggestedFix: null,
+            replacementCode: null,
             Now);
         run.Finish(Summary, CommitSha, Now);
 
@@ -76,7 +76,7 @@ internal static class TestReviewRuns
             new RuleId(Rule),
             Severity.Error,
             CommentBody,
-            suggestedFix: null,
+            replacementCode: null,
             Now);
 
         await repository.SaveAsync(run, CancellationToken.None);

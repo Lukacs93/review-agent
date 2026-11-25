@@ -25,7 +25,16 @@ public sealed record ReviewCommentDetails
     /// <summary>The text that will be published: the proposed text, or the developer's edit.</summary>
     public required string Body { get; init; }
 
+    /// <summary>The fix as free text, from comments proposed before <see cref="ReplacementCode"/>.</summary>
     public string? SuggestedFix { get; init; }
+
+    /// <summary>The code the agent proposed to replace the comment's line with.</summary>
+    public string? ProposedReplacementCode { get; init; }
+
+    /// <summary>
+    /// The code that will be published as a suggested change: the proposed code, or the developer's edit.
+    /// </summary>
+    public string? ReplacementCode { get; init; }
 
     public required CommentDecision Decision { get; init; }
 
@@ -48,6 +57,8 @@ public sealed record ReviewCommentDetails
             ProposedBody = comment.ProposedBody,
             Body = comment.Body,
             SuggestedFix = comment.SuggestedFix,
+            ProposedReplacementCode = comment.ProposedReplacementCode,
+            ReplacementCode = comment.ReplacementCode,
             Decision = comment.Decision,
             IsPublished = comment.IsPublished,
             RejectionReason = comment.RejectionReason,

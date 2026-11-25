@@ -134,6 +134,22 @@ public sealed class ReviewEndpointsTests(ReviewAgentApiFactory factory) : IClass
     }
 
     [Fact]
+    public async Task Edited_comment_is_saved_with_the_new_replacement_code()
+    {
+        const string replacementCode = "    public decimal DiscountAmount { get; private set; }";
+        var (runId, commentId) = await SaveFinishedRunWithOneCommentAsync();
+        using var client = factory.CreateClient();
+
+        using var response = await client.PostAsJsonAsync(
+            CommentUri(runId, commentId, "edit"),
+            new { Body = EditedBody, ReplacementCode = replacementCode });
+
+        Assert.Equal(HttpStatusCode.NoContent, response.StatusCode);
+        var comment = await ReadSingleCommentAsync(client, runId);
+        Assert.Equal(replacementCode, comment.ReplacementCode);
+    }
+
+    [Fact]
     public async Task Discarded_comment_is_saved()
     {
         var (runId, commentId) = await SaveFinishedRunWithOneCommentAsync();
@@ -251,7 +267,7 @@ public sealed class ReviewEndpointsTests(ReviewAgentApiFactory factory) : IClass
             new RuleId(Rule),
             Severity.Error,
             CommentBody,
-            suggestedFix: null,
+            replacementCode: null,
             now);
         run.Finish(Summary, CommitSha, now);
 

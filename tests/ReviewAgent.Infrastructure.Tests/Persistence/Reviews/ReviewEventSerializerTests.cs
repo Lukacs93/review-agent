@@ -83,6 +83,42 @@ public sealed class ReviewEventSerializerTests
         Assert.Equal(finished, read);
     }
 
+    // Events stored before the replacement code have the fix as free text, and no replacement code.
+    [Fact]
+    public void Comment_event_stored_with_a_free_text_fix_is_read()
+    {
+        var proposed = new CommentProposed(
+            RunId,
+            Now,
+            CommentId,
+            new CodeLocation("src/Orders.Api/Domain/Order.cs", 13),
+            new RuleId("DDD-01"),
+            Severity.Error,
+            "Entity properties must not have public setters.",
+            SuggestedFix: "Make the setter private.");
+        var data = ReviewEventSerializer.Serialize(proposed)
+            .Replace(",\"ReplacementCode\":null", string.Empty, StringComparison.Ordinal);
+
+        var read = ReviewEventSerializer.Deserialize(ReviewEventSerializer.TypeNameOf(proposed), data);
+
+        Assert.DoesNotContain("ReplacementCode", data, StringComparison.Ordinal);
+        Assert.Equal(proposed, read);
+    }
+
+    // Edits stored before the replacement code have none.
+    [Fact]
+    public void Edit_event_stored_without_replacement_code_is_read()
+    {
+        var edited = new CommentEdited(RunId, Now, CommentId, "Move this query to a handler.");
+        var data = ReviewEventSerializer.Serialize(edited)
+            .Replace(",\"ReplacementCode\":null", string.Empty, StringComparison.Ordinal);
+
+        var read = ReviewEventSerializer.Deserialize(ReviewEventSerializer.TypeNameOf(edited), data);
+
+        Assert.DoesNotContain("ReplacementCode", data, StringComparison.Ordinal);
+        Assert.Equal(edited, read);
+    }
+
     [Fact]
     public void Unknown_event_type_is_rejected()
     {
@@ -104,14 +140,20 @@ public sealed class ReviewEventSerializerTests
             new RuleId("ARCH-01"),
             Severity.Error,
             "Use an application handler instead of the DbContext.",
-            null),
+            SuggestedFix: null,
+            "    GetOrderHandler getOrder) : ControllerBase"),
         new CommentRejected(RunId, Now, CommentId, "The query does not change state."),
         new ModelCalled(RunId, Now, "code-reviewer", TimeSpan.FromMilliseconds(1250), 1200, OutputTokens: null),
         new VerificationFinished(RunId, Now),
         new ReviewFinished(RunId, Now, "One architecture issue.", "9fceb02d0ae598e95dc970b74767f19372d61af8"),
         new ReviewFailed(RunId, Now, "The model did not answer."),
         new CommentApproved(RunId, Now, CommentId),
-        new CommentEdited(RunId, Now, CommentId, "Move this query to a handler."),
+        new CommentEdited(
+            RunId,
+            Now,
+            CommentId,
+            "Move this query to a handler.",
+            "    GetOrderHandler getOrder) : ControllerBase"),
         new CommentDiscarded(RunId, Now, CommentId),
         new PublishingRequested(RunId, Now),
         new PublishingFailed(RunId, Now, "GitHub answered 422."),

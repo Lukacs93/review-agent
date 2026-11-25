@@ -222,7 +222,7 @@ public sealed class EfReviewRunRepositoryTests : IDisposable
             new RuleId("ARCH-01"),
             Severity.Error,
             CommentBody,
-            suggestedFix: null,
+            replacementCode: null,
             Now);
         run.Finish(Summary, CommitSha, Now);
         return run;

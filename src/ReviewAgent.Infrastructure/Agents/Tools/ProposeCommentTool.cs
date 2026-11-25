@@ -14,7 +14,7 @@ namespace ReviewAgent.Infrastructure.Agents.Tools;
 /// The tool the model proposes review comments with. The code checks every proposal before it is saved: the file
 /// is changed, the quoted code is on a line of its diff, and the rule exists. The severity comes from the team's
 /// rule, not from the model. A proposal that fails a check is not saved; the model gets the reason, so it can
-/// correct it.
+/// correct it. A replacement code that changes nothing is left out, and the comment is saved without it.
 /// </summary>
 /// <remarks>
 /// The line is found by the code the model quotes, not only by the number it gives, as Qodo PR-Agent does: a model
@@ -24,6 +24,9 @@ namespace ReviewAgent.Infrastructure.Agents.Tools;
 internal sealed class ProposeCommentTool
 {
     public const string Name = "propose_comment";
+
+    private const string WithoutReplacementCode =
+        "The replacement code was left out: it was the same as the line.";
 
     private const string Description =
         "Proposes a review comment on one line of a changed file, for code that breaks a team rule. "
@@ -67,7 +70,11 @@ internal sealed class ProposeCommentTool
         string lineCode,
         [Description("ID of the team rule the code breaks, for example ARCH-01.")] string ruleId,
         [Description("The comment for the developer: what is wrong and why, in one or two sentences.")] string body,
-        [Description("Optional: the corrected code, or a short description of the fix.")] string? suggestedFix = null,
+        [Description(
+            "Optional: the code that replaces this one line, as it should be in the file: one or more lines of code, "
+            + "no explanation. The developer can apply it with one click. Leave it out when other lines must change "
+            + "too.")]
+        string? replacementCode = null,
         CancellationToken cancellationToken = default)
     {
         if (!_codeByLineByPath.TryGetValue(path, out var codeByLine))
@@ -118,16 +125,30 @@ internal sealed class ProposeCommentTool
             return ProposeCommentErrors.BodyRequired;
         }
 
+        var replacement = string.IsNullOrWhiteSpace(replacementCode)
+            ? null
+            : IndentLikeLine(codeByLine[commentLine], replacementCode.ReplaceLineEndings("\n"));
+
+        // A replacement that changes nothing is useless, but the finding may still be right: the comment is kept
+        // without it, and the model is told.
+        var replacementChangesNothing = replacement is not null
+            && string.Equals(replacement.Trim(), codeByLine[commentLine].Trim(), StringComparison.Ordinal);
+        if (replacementChangesNothing)
+        {
+            replacement = null;
+        }
+
         if (!_proposed.Add((path, commentLine, rule.Id)))
         {
             return ProposeCommentErrors.Duplicate(path, commentLine, rule.Id.Value);
         }
 
         await _proposeComment.HandleAsync(
-            new ProposeCommentCommand(_runId, path, commentLine, rule.Id.Value, rule.Severity, body, suggestedFix),
+            new ProposeCommentCommand(_runId, path, commentLine, rule.Id.Value, rule.Severity, body, replacement),
             cancellationToken);
 
-        return commentLine == line ? "Comment proposed." : ProposedOnAnotherLine(commentLine, line);
+        var answer = commentLine == line ? "Comment proposed." : ProposedOnAnotherLine(commentLine, line);
+        return replacementChangesNothing ? $"{answer} {WithoutReplacementCode}" : answer;
     }
 
     // The comment was saved, but not on the given line: the model is told where, so it can check.
@@ -135,6 +156,25 @@ internal sealed class ProposeCommentTool
         string.Create(
             CultureInfo.InvariantCulture,
             $"Comment proposed on line {commentLine}: the quoted code is on line {commentLine}, not {givenLine}.");
+
+    /// <summary>Puts the line's indentation before each line of a replacement that has none.</summary>
+    // The replacement replaces the whole line, so it needs the line's indentation, which a model often leaves out,
+    // as it does when quoting the line.
+    private static string IndentLikeLine(string line, string replacement)
+    {
+        var indentation = LeadingWhitespace(line);
+        if (indentation.Length == 0 || LeadingWhitespace(replacement).Length > 0)
+        {
+            return replacement;
+        }
+
+        var replacementLines = replacement
+            .Split('\n')
+            .Select(replacementLine => replacementLine.Length == 0 ? replacementLine : indentation + replacementLine);
+        return string.Join('\n', replacementLines);
+    }
+
+    private static string LeadingWhitespace(string code) => new(code.TakeWhile(char.IsWhiteSpace).ToArray());
 
     private static Dictionary<int, string> CodeByLine(string patch)
     {

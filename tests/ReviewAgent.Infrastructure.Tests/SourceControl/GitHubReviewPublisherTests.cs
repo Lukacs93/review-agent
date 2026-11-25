@@ -35,7 +35,15 @@ public sealed class GitHubReviewPublisherTests : IDisposable
         new PullRequestRef("test", "demo", 1),
         CommitSha,
         "One architecture issue.",
-        [new CommentToPublish("src/Order.cs", 12, "ARCH-01", "Use an application handler.", "Inject a handler.")]);
+        [
+            new CommentToPublish(
+                "src/Order.cs",
+                12,
+                "ARCH-01",
+                "Use an application handler.",
+                SuggestedFix: "Inject a handler.",
+                ReplacementCode: null),
+        ]);
 
     private static string Marker => GitHubReviewRequest.MarkerOf(_runId);
 
