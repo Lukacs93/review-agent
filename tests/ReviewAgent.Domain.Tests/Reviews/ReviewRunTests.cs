@@ -10,6 +10,8 @@ public sealed class ReviewRunTests
     private const string Summary = "Two rule violations found.";
     private const string RejectionReason = "The query does not change state, so CQRS-01 is not broken.";
     private const string CommitSha = "9fceb02d0ae598e95dc970b74767f19372d61af8";
+    private const string ProposedReplacementCode = "    public decimal DiscountAmount { get; init; }";
+    private const string EditedReplacementCode = "    public decimal DiscountAmount { get; private set; }";
     private const string PublishingFailure = "GitHub answered 422: the line must be part of the diff.";
 
     private static DateTimeOffset Now => new(2026, 11, 14, 10, 0, 0, TimeSpan.Zero);
@@ -150,6 +152,28 @@ public sealed class ReviewRunTests
         Assert.False(comment.IsPublished);
     }
 
+    // The indentation is part of the code: only the line breaks at the end are dropped, and every line break becomes
+    // '\n', so a suggested change does not bring other line endings into the file.
+    [Theory]
+    [InlineData("    GetOrderHandler getOrder)\n", "    GetOrderHandler getOrder)")]
+    [InlineData("    GetOrderHandler getOrder)", "    GetOrderHandler getOrder)")]
+    [InlineData("    a,\r\n    b)\r\n", "    a,\n    b)")]
+    [InlineData("   ", null)]
+    public void Replacement_code_keeps_its_indentation(string replacementCode, string? expected)
+    {
+        var run = StartedRun();
+
+        run.ProposeComment(
+            new CodeLocation("src/Orders.Api/Controllers/OrdersController.cs", 14),
+            new RuleId("ARCH-01"),
+            Severity.Error,
+            "The controller uses OrdersDbContext directly.",
+            replacementCode,
+            Now);
+
+        Assert.Equal(expected, Assert.Single(run.Comments).ReplacementCode);
+    }
+
     [Fact]
     public void Comment_cannot_be_proposed_after_the_review_finished()
     {
@@ -234,6 +258,44 @@ public sealed class ReviewRunTests
         Assert.Equal(CommentDecision.Edited, comment.Decision);
         Assert.Equal("Move the discount calculation into Order.", comment.Body);
         Assert.Equal("The controller uses OrdersDbContext directly.", comment.ProposedBody);
+    }
+
+    [Fact]
+    public void Approved_comment_keeps_the_proposed_replacement_code()
+    {
+        var (run, commentId) = FinishedRunWithReplacementCode();
+
+        run.ApproveComment(commentId, Now);
+
+        Assert.Equal(ProposedReplacementCode, Assert.Single(run.Comments).ReplacementCode);
+    }
+
+    // The developer's code may come from any system: its line breaks become '\n' too.
+    [Fact]
+    public void Edited_replacement_code_gets_the_same_line_breaks()
+    {
+        var (run, commentId) = FinishedRunWithReplacementCode();
+
+        run.EditComment(commentId, "Entity properties must not have public setters.", "    a,\r\n    b)", Now);
+
+        Assert.Equal("    a,\n    b)", Assert.Single(run.Comments).ReplacementCode);
+    }
+
+    // The finding can be right and the proposed code wrong: the developer corrects or removes the code only, and
+    // leaving the code out of an edit keeps the proposed one.
+    [Theory]
+    [InlineData(EditedReplacementCode, EditedReplacementCode)]
+    [InlineData("", null)]
+    [InlineData(null, ProposedReplacementCode)]
+    public void Edited_replacement_code_decides_what_is_published(string? editedCode, string? publishedCode)
+    {
+        var (run, commentId) = FinishedRunWithReplacementCode();
+
+        run.EditComment(commentId, "Entity properties must not have public setters.", editedCode, Now);
+
+        var comment = Assert.Single(run.Comments);
+        Assert.Equal(publishedCode, comment.ReplacementCode);
+        Assert.Equal(ProposedReplacementCode, comment.ProposedReplacementCode);
     }
 
     [Fact]
@@ -587,6 +649,20 @@ public sealed class ReviewRunTests
     private static ReviewEvent LastEventOf(ReviewRun run) => run.UncommittedEvents[run.UncommittedEvents.Count - 1];
 
     private static ReviewRun StartedRun() => ReviewRun.Start(ReviewRunId.New(), PullRequest, Now);
+
+    private static (ReviewRun Run, CommentId CommentId) FinishedRunWithReplacementCode()
+    {
+        var run = StartedRun();
+        var commentId = run.ProposeComment(
+            new CodeLocation("src/Orders.Api/Domain/Order.cs", 13),
+            new RuleId("DDD-01"),
+            Severity.Error,
+            "Entity properties must not have public setters.",
+            ProposedReplacementCode,
+            Now);
+        run.Finish(Summary, CommitSha, Now);
+        return (run, commentId);
+    }
 
     private static CommentId ProposeComment(ReviewRun run) =>
         run.ProposeComment(

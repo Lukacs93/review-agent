@@ -70,4 +70,25 @@ public sealed class ReviewInstructionsTests
             task,
             StringComparison.Ordinal);
     }
+
+    // The verifier judges the change the developer could apply, so it sees the code as it would be published.
+    [Fact]
+    public void Verifier_task_shows_the_replacement_code_of_a_comment()
+    {
+        var run = ReviewRun.Start(ReviewRunId.New(), new PullRequestRef("test", "demo", 1), DateTimeOffset.UtcNow);
+        run.ProposeComment(
+            new CodeLocation("src/Orders.Api/Domain/Order.cs", 13),
+            new RuleId("DDD-01"),
+            Severity.Error,
+            "Entity properties must not have public setters.",
+            "    public decimal DiscountAmount { get; private set; }",
+            DateTimeOffset.UtcNow);
+
+        var task = ReviewInstructions.VerifierTaskPrompt(run.Comments);
+
+        Assert.Contains(
+            "  replacement code:\n```suggestion\n    public decimal DiscountAmount { get; private set; }\n```",
+            task,
+            StringComparison.Ordinal);
+    }
 }

@@ -35,6 +35,37 @@ public sealed class ProposeCommentToolTests
             command);
     }
 
+    // The replacement replaces the whole line, which is indented by four spaces in the diff.
+    [Fact]
+    public async Task Replacement_code_gets_the_indentation_of_the_line()
+    {
+        await Tool.ProposeAsync(FilePath, 11, LineElevenCode, "ARCH-01", CommentBody, "GetOrderHandler getOrder)");
+
+        Assert.Equal("    GetOrderHandler getOrder)", Assert.Single(_handler.Commands).ReplacementCode);
+    }
+
+    [Fact]
+    public async Task Indented_replacement_code_is_kept_as_it_is()
+    {
+        const string replacement = "        GetOrderHandler getOrder,\n        CancelOrderHandler cancelOrder)";
+
+        await Tool.ProposeAsync(FilePath, 11, LineElevenCode, "ARCH-01", CommentBody, replacement);
+
+        Assert.Equal(replacement, Assert.Single(_handler.Commands).ReplacementCode);
+    }
+
+    // The finding may be right even when the replacement is useless, so only the replacement is left out.
+    [Fact]
+    public async Task Replacement_code_that_changes_nothing_is_left_out()
+    {
+        var result = await Tool.ProposeAsync(FilePath, 11, LineElevenCode, "ARCH-01", CommentBody, LineElevenCode);
+
+        Assert.Equal(
+            "Comment proposed. The replacement code was left out: it was the same as the line.",
+            result);
+        Assert.Null(Assert.Single(_handler.Commands).ReplacementCode);
+    }
+
     [Fact]
     public async Task Comment_on_a_file_not_changed_is_not_saved()
     {
