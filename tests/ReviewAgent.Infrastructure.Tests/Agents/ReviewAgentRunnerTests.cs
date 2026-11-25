@@ -4,6 +4,7 @@ using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 using ReviewAgent.Application.Reviews;
 using ReviewAgent.Application.Reviews.Commands.FailReview;
+using ReviewAgent.Application.Reviews.Commands.FailVerification;
 using ReviewAgent.Application.Reviews.Commands.FinishReview;
 using ReviewAgent.Application.Reviews.Commands.FinishVerification;
 using ReviewAgent.Application.Reviews.Commands.ProposeComment;
@@ -155,7 +156,9 @@ public sealed class ReviewAgentRunnerTests : IDisposable
     {
         var runId = await StartRunAsync();
         await new FailReviewCommandHandler(_repository, TimeProvider.System)
-            .HandleAsync(new FailReviewCommand(runId, "Stopped."), CancellationToken.None);
+            .HandleAsync(
+                new FailReviewCommand(runId, "Stopped.", ReviewFailureKind.Infrastructure),
+                CancellationToken.None);
 
         await Runner(() => throw new InvalidOperationException("The model must not be called."))
             .ReviewAsync(runId, CancellationToken.None);
@@ -340,6 +343,7 @@ public sealed class ReviewAgentRunnerTests : IDisposable
                 new ProposeCommentCommandHandler(_repository, TimeProvider.System),
                 new RejectCommentCommandHandler(_repository, TimeProvider.System),
                 new FinishVerificationCommandHandler(_repository, TimeProvider.System),
+                new FailVerificationCommandHandler(_repository, TimeProvider.System),
                 new FinishReviewCommandHandler(_repository, TimeProvider.System),
                 new FailReviewCommandHandler(_repository, TimeProvider.System)),
             Options.Create(new AgentOptions

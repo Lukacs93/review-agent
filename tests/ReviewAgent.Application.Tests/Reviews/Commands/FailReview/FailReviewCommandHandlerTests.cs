@@ -17,7 +17,9 @@ public sealed class FailReviewCommandHandlerTests
     {
         var runId = await TestReviewRuns.SaveRunningRunAsync(_repository);
 
-        await Handler.HandleAsync(new FailReviewCommand(runId, Reason), CancellationToken.None);
+        await Handler.HandleAsync(
+            new FailReviewCommand(runId, Reason, ReviewFailureKind.ModelService),
+            CancellationToken.None);
 
         var run = await _repository.FindAsync(new ReviewRunId(runId), CancellationToken.None);
         Assert.NotNull(run);

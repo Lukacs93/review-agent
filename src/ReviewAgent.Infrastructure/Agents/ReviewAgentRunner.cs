@@ -4,6 +4,7 @@ using Microsoft.Extensions.Options;
 using ReviewAgent.Application.Reviews;
 using ReviewAgent.Application.Reviews.Agent;
 using ReviewAgent.Application.Reviews.Commands.FailReview;
+using ReviewAgent.Application.Reviews.Commands.FailVerification;
 using ReviewAgent.Application.Reviews.Commands.FinishReview;
 using ReviewAgent.Application.Reviews.Commands.FinishVerification;
 using ReviewAgent.Application.SourceControl;
@@ -52,7 +53,8 @@ internal sealed partial class ReviewAgentRunner(
         using var timeoutSource = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
         timeoutSource.CancelAfter(timeout);
 
-        string? failure;
+        string failure;
+        ReviewFailureKind failureKind;
         try
         {
             var (summary, reviewedCommitSha) = await RunAgentAsync(runId, run.PullRequest, timeoutSource.Token);
@@ -65,6 +67,7 @@ internal sealed partial class ReviewAgentRunner(
             }
 
             failure = AgentErrors.NoSummary;
+            failureKind = ReviewFailureKind.Agent;
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {
@@ -74,15 +77,35 @@ internal sealed partial class ReviewAgentRunner(
         catch (OperationCanceledException) when (timeoutSource.IsCancellationRequested)
         {
             failure = AgentErrors.TimedOut(timeout);
+            failureKind = ReviewFailureKind.Agent;
         }
         catch (Exception exception)
         {
             LogReviewFailed(_logger, runId, exception);
-            LogFullModelAnswer(runId, exception);
-            failure = AgentErrors.Failed(ModelErrorDetails.Describe(exception));
+            var (error, kind) = Classify(exception);
+            LogFullModelAnswer(runId, error);
+            failure = AgentErrors.Failed(ModelErrorDetails.Describe(error));
+            failureKind = kind;
         }
 
-        await commands.FailReview.HandleAsync(new FailReviewCommand(runId, failure), cancellationToken);
+        await commands.FailReview.HandleAsync(new FailReviewCommand(runId, failure, failureKind), cancellationToken);
+    }
+
+    /// <summary>
+    /// What an error came from, and the error to describe: for a failed model call, the model API's own error,
+    /// whose answer holds the details.
+    /// </summary>
+    private static (Exception Error, ReviewFailureKind Kind) Classify(Exception exception)
+    {
+        for (var current = exception; current is not null; current = current.InnerException)
+        {
+            if (current is ModelServiceException modelError)
+            {
+                return (modelError.InnerException ?? modelError, ReviewFailureKind.ModelService);
+            }
+        }
+
+        return (exception, ReviewFailureKind.Infrastructure);
     }
 
     /// <summary>Runs the agents; returns the summary, and the commit of the pull request they reviewed.</summary>
@@ -174,8 +197,13 @@ internal sealed partial class ReviewAgentRunner(
         catch (Exception exception) when (exception is not OperationCanceledException)
         {
             LogVerificationFailed(_logger, runId, exception);
-            LogFullModelAnswer(runId, exception);
-            return ModelErrorDetails.Describe(exception);
+            var (error, kind) = Classify(exception);
+            LogFullModelAnswer(runId, error);
+            var reason = ModelErrorDetails.Describe(error);
+            await commands.FailVerification.HandleAsync(
+                new FailVerificationCommand(runId, reason, kind),
+                cancellationToken);
+            return reason;
         }
 
         // The model's own sentence only goes to the log: how many comments it kept and rejected is counted from
@@ -190,7 +218,8 @@ internal sealed partial class ReviewAgentRunner(
     // The function-invoking client runs the tools the model asks for and sends back the results, until the model
     // answers without asking for more; the agents use it instead of adding their own. Inside it, each model call is
     // recorded on the run with the agent's name (so one client per agent), and traced and measured by OpenTelemetry;
-    // the recording is outside the trace, so saving it does not add to the call's measured time.
+    // the recording is outside the trace, so saving it does not add to the call's measured time. The innermost
+    // client marks the model call's own errors, so a failure can be traced to the model's service.
     private IChatClient CreateChatClient(Guid runId, string agentName)
     {
         var settings = options.Value;
@@ -204,6 +233,7 @@ internal sealed partial class ReviewAgentRunner(
                 loggerFactory,
                 DependencyInjection.TelemetrySourceName,
                 telemetry => telemetry.EnableSensitiveData = settings.TelemetryIncludesContent)
+            .Use(innerClient => new ModelServiceChatClient(innerClient))
             .Build();
     }
 

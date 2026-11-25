@@ -146,7 +146,8 @@ public sealed class ReviewEventSerializerTests
         new ModelCalled(RunId, Now, "code-reviewer", TimeSpan.FromMilliseconds(1250), 1200, OutputTokens: null),
         new VerificationFinished(RunId, Now),
         new ReviewFinished(RunId, Now, "One architecture issue.", "9fceb02d0ae598e95dc970b74767f19372d61af8"),
-        new ReviewFailed(RunId, Now, "The model did not answer."),
+        new ReviewFailed(RunId, Now, "The model did not answer.", ReviewFailureKind.ModelService),
+        new VerificationFailed(RunId, Now, "The model did not answer.", ReviewFailureKind.ModelService),
         new CommentApproved(RunId, Now, CommentId),
         new CommentEdited(
             RunId,

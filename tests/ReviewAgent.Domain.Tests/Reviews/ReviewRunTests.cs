@@ -213,7 +213,7 @@ public sealed class ReviewRunTests
     {
         var run = StartedRun();
 
-        run.Fail("Step limit reached.", Now);
+        run.Fail("Step limit reached.", ReviewFailureKind.Agent, Now);
 
         Assert.Equal(ReviewStatus.Failed, run.Status);
         Assert.Equal("Step limit reached.", run.FailureReason);
@@ -225,7 +225,7 @@ public sealed class ReviewRunTests
         var run = StartedRun();
         run.Finish(Summary, CommitSha, Now);
 
-        AssertFails(ReviewRunErrors.FailWhenNotRunning, () => run.Fail("Too late.", Now));
+        AssertFails(ReviewRunErrors.FailWhenNotRunning, () => run.Fail("Too late.", ReviewFailureKind.Agent, Now));
     }
 
     [Fact]

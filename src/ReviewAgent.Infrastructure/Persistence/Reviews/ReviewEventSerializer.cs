@@ -18,6 +18,7 @@ internal static class ReviewEventSerializer
         ["CommentProposed"] = typeof(CommentProposed),
         ["CommentRejected"] = typeof(CommentRejected),
         ["VerificationFinished"] = typeof(VerificationFinished),
+        ["VerificationFailed"] = typeof(VerificationFailed),
         ["ReviewFinished"] = typeof(ReviewFinished),
         ["ReviewFailed"] = typeof(ReviewFailed),
         ["CommentApproved"] = typeof(CommentApproved),
