@@ -39,6 +39,19 @@ jq --raw-output '
   def kept: [.comments[] | select(.rejectionReason == null)];
   def rejected: [.comments[] | select(.rejectionReason != null)];
   def count(value): if value == null then "not reported" else (value | tostring) end;
+  # The API gives a time span as hours:minutes:seconds ("00:00:19.8087147"); shown rounded, as "19.8 s" or
+  # "1 min 5 s".
+  def duration(time):
+    (time | split(":") | map(tonumber)) as [$hours, $minutes, $seconds]
+    | ($hours * 3600 + $minutes * 60 + $seconds) as $total
+    | (($total * 10 | round) / 10) as $tenths
+    | ($total | round) as $whole
+    | if $tenths < 60 then "\($tenths) s" else "\($whole / 60 | floor) min \($whole % 60) s" end;
+  # The verifier only runs when there are comments to check.
+  def verifier:
+    if .verifierSummary != null then .verifierSummary
+    elif (.comments | length) == 0 then "no comments to check"
+    else "did not run" end;
   "## Review of pull request #\(.pullRequestNumber)",
   "",
   "**Status:** \(.status)",
@@ -48,11 +61,11 @@ jq --raw-output '
   "| Measure | Value |",
   "| --- | --- |",
   "| Model calls | \(.modelCallCount) |",
-  "| Model time | \(.modelTime) |",
+  "| Model time | \(duration(.modelTime)) |",
   "| Input tokens | \(count(.inputTokenCount)) |",
   "| Output tokens | \(count(.outputTokenCount)) |",
   "| Tool calls | \(.toolCallCount) |",
-  "| Verifier | \(.verifierSummary // "did not run") |",
+  "| Verifier | \(verifier) |",
   "",
   "### Comments to publish (\(kept | length))",
   "",
