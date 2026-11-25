@@ -17,11 +17,27 @@ public sealed class FailReviewCommandHandlerTests
     {
         var runId = await TestReviewRuns.SaveRunningRunAsync(_repository);
 
-        await Handler.HandleAsync(new FailReviewCommand(runId, Reason), CancellationToken.None);
+        await Handler.HandleAsync(
+            new FailReviewCommand(runId, Reason, ReviewFailureKind.ModelService),
+            CancellationToken.None);
 
         var run = await _repository.FindAsync(new ReviewRunId(runId), CancellationToken.None);
         Assert.NotNull(run);
         Assert.Equal(ReviewStatus.Failed, run.Status);
         Assert.Equal(Reason, run.FailureReason);
+    }
+
+    [Fact]
+    public async Task Failed_review_keeps_what_the_failure_came_from()
+    {
+        var runId = await TestReviewRuns.SaveRunningRunAsync(_repository);
+
+        await Handler.HandleAsync(
+            new FailReviewCommand(runId, Reason, ReviewFailureKind.ModelService),
+            CancellationToken.None);
+
+        var run = await _repository.FindAsync(new ReviewRunId(runId), CancellationToken.None);
+        Assert.NotNull(run);
+        Assert.Equal(ReviewFailureKind.ModelService, run.FailureKind);
     }
 }

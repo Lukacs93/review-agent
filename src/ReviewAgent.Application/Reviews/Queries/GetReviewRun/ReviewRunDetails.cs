@@ -53,6 +53,18 @@ public sealed record ReviewRunDetails
     /// <summary>Why the run stopped; <see langword="null"/> unless it failed.</summary>
     public string? FailureReason { get; init; }
 
+    /// <summary>
+    /// What the failure came from: the agent itself, the model's service, or other infrastructure;
+    /// <see langword="null"/> unless the run failed, and for a failure stored without a kind.
+    /// </summary>
+    public ReviewFailureKind? FailureKind { get; init; }
+
+    /// <summary>Why the verifier agent could not finish; <see langword="null"/> unless it failed.</summary>
+    public string? VerificationFailureReason { get; init; }
+
+    /// <summary>What the verifier's failure came from; <see langword="null"/> unless it failed.</summary>
+    public ReviewFailureKind? VerificationFailureKind { get; init; }
+
     /// <summary>Why the last publishing failed; <see langword="null"/> unless it failed.</summary>
     public string? PublishingFailureReason { get; init; }
 
@@ -78,6 +90,9 @@ public sealed record ReviewRunDetails
             Summary = run.Summary,
             VerifierSummary = run.IsVerified ? VerifierSummaryOf(run.Comments) : null,
             FailureReason = run.FailureReason,
+            FailureKind = run.FailureKind,
+            VerificationFailureReason = run.VerificationFailureReason,
+            VerificationFailureKind = run.VerificationFailureKind,
             PublishingFailureReason = run.PublishingFailureReason,
             Comments = run.Comments.Select(ReviewCommentDetails.From).ToList(),
         };

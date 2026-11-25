@@ -5,6 +5,7 @@ using ReviewAgent.Application.Reviews.Commands.DiscardComment;
 using ReviewAgent.Application.Reviews.Commands.EditComment;
 using ReviewAgent.Application.Reviews.Commands.FailInterruptedReviews;
 using ReviewAgent.Application.Reviews.Commands.FailReview;
+using ReviewAgent.Application.Reviews.Commands.FailVerification;
 using ReviewAgent.Application.Reviews.Commands.FinishReview;
 using ReviewAgent.Application.Reviews.Commands.FinishVerification;
 using ReviewAgent.Application.Reviews.Commands.ProposeComment;
@@ -43,6 +44,7 @@ public static class DependencyInjection
         services.AddScoped<ICommandHandler<ProposeCommentCommand, Guid>, ProposeCommentCommandHandler>();
         services.AddScoped<ICommandHandler<RejectCommentCommand>, RejectCommentCommandHandler>();
         services.AddScoped<ICommandHandler<FinishVerificationCommand>, FinishVerificationCommandHandler>();
+        services.AddScoped<ICommandHandler<FailVerificationCommand>, FailVerificationCommandHandler>();
         services.AddScoped<ICommandHandler<FinishReviewCommand>, FinishReviewCommandHandler>();
         services.AddScoped<ICommandHandler<FailReviewCommand>, FailReviewCommandHandler>();
         services.AddScoped<ICommandHandler<FailInterruptedReviewsCommand, int>, FailInterruptedReviewsCommandHandler>();

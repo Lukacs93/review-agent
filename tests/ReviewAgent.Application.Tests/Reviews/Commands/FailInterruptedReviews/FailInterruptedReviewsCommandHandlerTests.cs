@@ -30,6 +30,19 @@ public sealed class FailInterruptedReviewsCommandHandlerTests
         }
     }
 
+    // A restart is not the agent's failure, so an evaluation does not count it as one.
+    [Fact]
+    public async Task Interrupted_reviews_fail_as_infrastructure()
+    {
+        var runId = await TestReviewRuns.SaveRunningRunAsync(_repository);
+
+        await Handler.HandleAsync(new FailInterruptedReviewsCommand(), CancellationToken.None);
+
+        var run = await _repository.FindAsync(new ReviewRunId(runId), CancellationToken.None);
+        Assert.NotNull(run);
+        Assert.Equal(ReviewFailureKind.Infrastructure, run.FailureKind);
+    }
+
     [Fact]
     public async Task Finished_reviews_are_left_alone()
     {

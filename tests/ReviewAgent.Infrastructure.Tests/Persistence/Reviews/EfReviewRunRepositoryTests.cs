@@ -155,7 +155,7 @@ public sealed class EfReviewRunRepositoryTests : IDisposable
         working.RecordToolCall("get_diff", null, Now);
         var finished = FinishedRunWithOneComment();
         var failed = StartedRun();
-        failed.Fail("The model could not be reached.", Now);
+        failed.Fail("The model could not be reached.", ReviewFailureKind.ModelService, Now);
         foreach (var run in new[] { started, working, finished, failed })
         {
             await SaveAsync(run);

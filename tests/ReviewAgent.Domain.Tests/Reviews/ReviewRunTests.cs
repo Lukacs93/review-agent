@@ -213,10 +213,45 @@ public sealed class ReviewRunTests
     {
         var run = StartedRun();
 
-        run.Fail("Step limit reached.", Now);
+        run.Fail("Step limit reached.", ReviewFailureKind.Agent, Now);
 
         Assert.Equal(ReviewStatus.Failed, run.Status);
         Assert.Equal("Step limit reached.", run.FailureReason);
+    }
+
+    [Fact]
+    public void Failed_review_keeps_what_the_failure_came_from()
+    {
+        var run = StartedRun();
+
+        run.Fail("The model's API answered 429.", ReviewFailureKind.ModelService, Now);
+
+        Assert.Equal(ReviewFailureKind.ModelService, run.FailureKind);
+    }
+
+    // The review goes on with the comments unchecked; the failure is kept for the developer and the evaluation.
+    [Fact]
+    public void Failed_verification_is_kept_and_the_review_goes_on()
+    {
+        var run = StartedRun();
+
+        run.FailVerification("The model's API answered 429.", ReviewFailureKind.ModelService, Now);
+
+        Assert.Equal(ReviewStatus.Running, run.Status);
+        Assert.Equal("The model's API answered 429.", run.VerificationFailureReason);
+        Assert.Equal(ReviewFailureKind.ModelService, run.VerificationFailureKind);
+        Assert.False(run.IsVerified);
+    }
+
+    [Fact]
+    public void Verification_cannot_fail_after_the_review_finished()
+    {
+        var run = StartedRun();
+        run.Finish(Summary, CommitSha, Now);
+
+        AssertFails(
+            ReviewRunErrors.VerifyWhenNotRunning,
+            () => run.FailVerification("Too late.", ReviewFailureKind.ModelService, Now));
     }
 
     [Fact]
@@ -225,7 +260,7 @@ public sealed class ReviewRunTests
         var run = StartedRun();
         run.Finish(Summary, CommitSha, Now);
 
-        AssertFails(ReviewRunErrors.FailWhenNotRunning, () => run.Fail("Too late.", Now));
+        AssertFails(ReviewRunErrors.FailWhenNotRunning, () => run.Fail("Too late.", ReviewFailureKind.Agent, Now));
     }
 
     [Fact]

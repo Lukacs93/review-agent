@@ -43,6 +43,16 @@ public sealed record CommentProposed(
     string? ReplacementCode = null)
     : ReviewEvent(RunId, OccurredAt);
 
+/// <summary>
+/// The verifier agent could not finish, so the comments it did not reject stay unchecked; the review goes on.
+/// </summary>
+public sealed record VerificationFailed(
+    ReviewRunId RunId,
+    DateTimeOffset OccurredAt,
+    string Reason,
+    ReviewFailureKind Kind)
+    : ReviewEvent(RunId, OccurredAt);
+
 /// <summary>The verifier agent rejected a proposed comment, so it will not reach the developer.</summary>
 public sealed record CommentRejected(ReviewRunId RunId, DateTimeOffset OccurredAt, CommentId CommentId, string Reason)
     : ReviewEvent(RunId, OccurredAt);
@@ -68,8 +78,13 @@ public sealed record ReviewFinished(
     string? ReviewedCommitSha)
     : ReviewEvent(RunId, OccurredAt);
 
-/// <summary>The run stopped with an error.</summary>
-public sealed record ReviewFailed(ReviewRunId RunId, DateTimeOffset OccurredAt, string Reason)
+/// <summary>The run stopped with an error, and what the error came from.</summary>
+// Stored data. Events stored before Kind have none; they are read with a null kind.
+public sealed record ReviewFailed(
+    ReviewRunId RunId,
+    DateTimeOffset OccurredAt,
+    string Reason,
+    ReviewFailureKind? Kind = null)
     : ReviewEvent(RunId, OccurredAt);
 
 /// <summary>A developer approved a comment as proposed.</summary>

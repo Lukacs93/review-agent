@@ -1,5 +1,6 @@
 using ReviewAgent.Application.Interfaces;
 using ReviewAgent.Application.Reviews.Errors;
+using ReviewAgent.Domain.Reviews;
 
 namespace ReviewAgent.Application.Reviews.Commands.FailInterruptedReviews;
 
@@ -15,7 +16,8 @@ public sealed class FailInterruptedReviewsCommandHandler(IReviewRunRepository re
         foreach (var runId in runningIds)
         {
             var run = await repository.GetAsync(runId, cancellationToken);
-            run.Fail(InterruptedReviewErrors.Interrupted, timeProvider.GetUtcNow());
+            // The application stopped under the run: nothing the agent did.
+            run.Fail(InterruptedReviewErrors.Interrupted, ReviewFailureKind.Infrastructure, timeProvider.GetUtcNow());
             await repository.SaveAsync(run, cancellationToken);
         }
 

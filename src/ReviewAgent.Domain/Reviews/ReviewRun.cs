@@ -49,6 +49,18 @@ public sealed class ReviewRun
 
     public string? FailureReason { get; private set; }
 
+    /// <summary>
+    /// What the failure came from; <see langword="null"/> unless the run failed, and for a failure stored without a
+    /// kind.
+    /// </summary>
+    public ReviewFailureKind? FailureKind { get; private set; }
+
+    /// <summary>Why the verifier agent could not finish; <see langword="null"/> unless it failed.</summary>
+    public string? VerificationFailureReason { get; private set; }
+
+    /// <summary>What the verifier's failure came from; <see langword="null"/> unless it failed.</summary>
+    public ReviewFailureKind? VerificationFailureKind { get; private set; }
+
     /// <summary>Whether the verifier agent double-checked the comments.</summary>
     public bool IsVerified { get; private set; }
 
@@ -185,6 +197,17 @@ public sealed class ReviewRun
         Raise(new VerificationFinished(Id, now));
     }
 
+    /// <summary>
+    /// The verifier agent could not finish. The review goes on with the comments it did not reject, unchecked.
+    /// </summary>
+    public void FailVerification(string reason, ReviewFailureKind kind, DateTimeOffset now)
+    {
+        EnsureStatus(ReviewStatus.Running, ReviewRunErrors.VerifyWhenNotRunning);
+        EnsureNotBlank(reason, ReviewRunErrors.FailureReasonRequired);
+
+        Raise(new VerificationFailed(Id, now, reason.Trim(), kind));
+    }
+
     public void Finish(string summary, string? reviewedCommitSha, DateTimeOffset now)
     {
         EnsureStatus(ReviewStatus.Running, ReviewRunErrors.FinishWhenNotRunning);
@@ -194,12 +217,12 @@ public sealed class ReviewRun
         Raise(new ReviewFinished(Id, now, summary.Trim(), commitSha));
     }
 
-    public void Fail(string reason, DateTimeOffset now)
+    public void Fail(string reason, ReviewFailureKind kind, DateTimeOffset now)
     {
         EnsureStatus(ReviewStatus.Running, ReviewRunErrors.FailWhenNotRunning);
         EnsureNotBlank(reason, ReviewRunErrors.FailureReasonRequired);
 
-        Raise(new ReviewFailed(Id, now, reason.Trim()));
+        Raise(new ReviewFailed(Id, now, reason.Trim(), kind));
     }
 
     public void ApproveComment(CommentId commentId, DateTimeOffset now)
@@ -357,6 +380,11 @@ public sealed class ReviewRun
                 IsVerified = true;
                 break;
 
+            case VerificationFailed verificationFailed:
+                VerificationFailureReason = verificationFailed.Reason;
+                VerificationFailureKind = verificationFailed.Kind;
+                break;
+
             case ReviewFinished finished:
                 Summary = finished.Summary;
                 ReviewedCommitSha = finished.ReviewedCommitSha;
@@ -365,6 +393,7 @@ public sealed class ReviewRun
 
             case ReviewFailed failed:
                 FailureReason = failed.Reason;
+                FailureKind = failed.Kind;
                 Status = ReviewStatus.Failed;
                 break;
 
