@@ -36,6 +36,9 @@ public sealed class ReviewAgentRunnerTests : IDisposable
     private const string VerifierAnswer = "I kept 1 comment and rejected 1.";
     private const string RejectionReason = "Line 10 only declares the class; the DbContext is on line 11.";
 
+    // Short, so the test does not wait long for a model that never answers.
+    private static readonly TimeSpan ShortTimeout = TimeSpan.FromMilliseconds(200);
+
     private readonly SqliteTestDatabase _database = new();
     private readonly EfReviewRunRepository _repository;
 
@@ -108,6 +111,22 @@ public sealed class ReviewAgentRunnerTests : IDisposable
         var run = await LoadAsync(runId);
         Assert.Equal(ReviewStatus.Failed, run.Status);
         Assert.Equal(AgentErrors.Failed(AgentErrors.ApiKeyMissing), run.FailureReason);
+        Assert.Equal(ReviewFailureKind.Infrastructure, run.FailureKind);
+    }
+
+    [Fact]
+    public async Task Model_service_error_fails_the_run_as_the_model_services()
+    {
+        const string error = "The model's API answered 503.";
+        var model = new ScriptedChatClient(ScriptedChatClient.Fails(new HttpRequestException(error)));
+        var runId = await StartRunAsync();
+
+        await Runner(() => model).ReviewAsync(runId, CancellationToken.None);
+
+        var run = await LoadAsync(runId);
+        Assert.Equal(ReviewStatus.Failed, run.Status);
+        Assert.Equal(AgentErrors.Failed(error), run.FailureReason);
+        Assert.Equal(ReviewFailureKind.ModelService, run.FailureKind);
     }
 
     [Fact]
@@ -121,6 +140,21 @@ public sealed class ReviewAgentRunnerTests : IDisposable
         var run = await LoadAsync(runId);
         Assert.Equal(ReviewStatus.Failed, run.Status);
         Assert.Equal(AgentErrors.NoSummary, run.FailureReason);
+        Assert.Equal(ReviewFailureKind.Agent, run.FailureKind);
+    }
+
+    [Fact]
+    public async Task Model_that_does_not_answer_in_time_fails_the_run_as_the_agents()
+    {
+        var runId = await StartRunAsync();
+
+        await Runner(() => new UnansweringChatClient(), timeout: ShortTimeout)
+            .ReviewAsync(runId, CancellationToken.None);
+
+        var run = await LoadAsync(runId);
+        Assert.Equal(ReviewStatus.Failed, run.Status);
+        Assert.Equal(AgentErrors.TimedOut(ShortTimeout), run.FailureReason);
+        Assert.Equal(ReviewFailureKind.Agent, run.FailureKind);
     }
 
     [Fact]
@@ -134,6 +168,7 @@ public sealed class ReviewAgentRunnerTests : IDisposable
         var run = await LoadAsync(runId);
         Assert.Equal(ReviewStatus.Failed, run.Status);
         Assert.Equal(AgentErrors.Failed(AgentErrors.TeamRulesNotFound(RulesPath)), run.FailureReason);
+        Assert.Equal(ReviewFailureKind.Infrastructure, run.FailureKind);
     }
 
     // A pull request that adds or changes the rules is reviewed by the rules of the branch it merges into.
@@ -239,6 +274,8 @@ public sealed class ReviewAgentRunnerTests : IDisposable
         Assert.Equal($"{Summary}\n\n{AgentErrors.VerificationFailed(error)}", run.Summary);
         Assert.False(Assert.Single(run.Comments).IsRejected);
         Assert.False(run.IsVerified);
+        Assert.Equal(error, run.VerificationFailureReason);
+        Assert.Equal(ReviewFailureKind.ModelService, run.VerificationFailureKind);
     }
 
     // Each round of the tool loop is one model call; the token counts are those the model's API reported.
@@ -328,7 +365,8 @@ public sealed class ReviewAgentRunnerTests : IDisposable
         Func<IChatClient> createModel,
         string? baseRulesMarkdown = TestData.RulesMarkdown,
         bool verifierEnabled = false,
-        string? pullRequestRulesMarkdown = TestData.RulesMarkdown) =>
+        string? pullRequestRulesMarkdown = TestData.RulesMarkdown,
+        TimeSpan? timeout = null) =>
         new(
             _repository,
             new FakePullRequestSource(
@@ -352,7 +390,7 @@ public sealed class ReviewAgentRunnerTests : IDisposable
                 Model = "test-model",
                 McpServerUrl = new Uri("http://localhost:5090/"),
                 MaxToolRounds = 10,
-                Timeout = TimeSpan.FromMinutes(1),
+                Timeout = timeout ?? TimeSpan.FromMinutes(1),
                 Verifier = new VerifierOptions { Enabled = verifierEnabled },
             }),
             Options.Create(new TeamRulesOptions { TeamRulesPath = RulesPath }),
@@ -408,5 +446,30 @@ public sealed class ReviewAgentRunnerTests : IDisposable
     private sealed class FakeChatClientFactory(Func<IChatClient> create) : IAgentChatClientFactory
     {
         public IChatClient Create() => create();
+    }
+
+    // A model call that hangs: it ends only when the call is cancelled.
+    private sealed class UnansweringChatClient : IChatClient
+    {
+        public async Task<ChatResponse> GetResponseAsync(
+            IEnumerable<ChatMessage> messages,
+            ChatOptions? options = null,
+            CancellationToken cancellationToken = default)
+        {
+            await Task.Delay(Timeout.InfiniteTimeSpan, cancellationToken);
+            throw new UnreachableException();
+        }
+
+        public IAsyncEnumerable<ChatResponseUpdate> GetStreamingResponseAsync(
+            IEnumerable<ChatMessage> messages,
+            ChatOptions? options = null,
+            CancellationToken cancellationToken = default) =>
+            throw new NotSupportedException();
+
+        public object? GetService(Type serviceType, object? serviceKey = null) => null;
+
+        public void Dispose()
+        {
+        }
     }
 }

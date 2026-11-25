@@ -119,6 +119,20 @@ public sealed class ReviewEventSerializerTests
         Assert.Equal(edited, read);
     }
 
+    // Failures stored before their kind was recorded have none.
+    [Fact]
+    public void Failure_stored_without_its_kind_is_read()
+    {
+        var failed = new ReviewFailed(RunId, Now, "The model did not answer.");
+        var data = ReviewEventSerializer.Serialize(failed)
+            .Replace(",\"Kind\":null", string.Empty, StringComparison.Ordinal);
+
+        var read = ReviewEventSerializer.Deserialize(ReviewEventSerializer.TypeNameOf(failed), data);
+
+        Assert.DoesNotContain("Kind", data, StringComparison.Ordinal);
+        Assert.Equal(failed, read);
+    }
+
     [Fact]
     public void Unknown_event_type_is_rejected()
     {

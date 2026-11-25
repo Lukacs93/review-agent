@@ -95,12 +95,46 @@ public sealed class GetReviewRunQueryHandlerTests
     }
 
     [Fact]
+    public async Task Failed_review_shows_what_the_failure_came_from()
+    {
+        var run = StartedRun();
+        run.Fail("The model's API answered 429.", ReviewFailureKind.ModelService, TestReviewRuns.Now);
+        await _repository.SaveAsync(run, CancellationToken.None);
+
+        var details = await Handler.HandleAsync(new GetReviewRunQuery(run.Id.Value), CancellationToken.None);
+
+        Assert.NotNull(details);
+        Assert.Equal(ReviewFailureKind.ModelService, details.FailureKind);
+    }
+
+    [Fact]
+    public async Task Failed_verification_is_shown_with_its_kind()
+    {
+        var run = StartedRun();
+        run.FailVerification("The model's API answered 429.", ReviewFailureKind.ModelService, TestReviewRuns.Now);
+        await _repository.SaveAsync(run, CancellationToken.None);
+
+        var details = await Handler.HandleAsync(new GetReviewRunQuery(run.Id.Value), CancellationToken.None);
+
+        Assert.NotNull(details);
+        Assert.Equal("The model's API answered 429.", details.VerificationFailureReason);
+        Assert.Equal(ReviewFailureKind.ModelService, details.VerificationFailureKind);
+        Assert.Null(details.VerifierSummary);
+    }
+
+    [Fact]
     public async Task Unknown_run_returns_null()
     {
         var details = await Handler.HandleAsync(new GetReviewRunQuery(Guid.NewGuid()), CancellationToken.None);
 
         Assert.Null(details);
     }
+
+    private static ReviewRun StartedRun() =>
+        ReviewRun.Start(
+            ReviewRunId.New(),
+            new PullRequestRef(TestReviewRuns.RepositoryOwner, TestReviewRuns.RepositoryName, 1),
+            TestReviewRuns.Now);
 
     private static CommentId ProposeComment(ReviewRun run, int line) =>
         run.ProposeComment(
