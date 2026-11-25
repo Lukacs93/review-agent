@@ -135,6 +135,21 @@ public sealed class ReviewAgentRunnerTests : IDisposable
         Assert.Equal(AgentErrors.Failed(AgentErrors.TeamRulesNotFound(RulesPath)), run.FailureReason);
     }
 
+    // A pull request that adds or changes the rules is reviewed by the rules of the branch it merges into.
+    [Fact]
+    public async Task Rules_only_in_the_pull_request_are_not_used()
+    {
+        var model = new ScriptedChatClient(ScriptedChatClient.Answers(Summary));
+        var runId = await StartRunAsync();
+
+        await Runner(() => model, baseRulesMarkdown: null, pullRequestRulesMarkdown: TestData.RulesMarkdown)
+            .ReviewAsync(runId, CancellationToken.None);
+
+        var run = await LoadAsync(runId);
+        Assert.Equal(ReviewStatus.Failed, run.Status);
+        Assert.Equal(AgentErrors.Failed(AgentErrors.TeamRulesNotFound(RulesPath)), run.FailureReason);
+    }
+
     [Fact]
     public async Task Run_that_is_no_longer_running_is_left_alone()
     {

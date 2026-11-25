@@ -139,6 +139,18 @@ public sealed class PullRequestToolsTests(WebApplicationFactory<Program> factory
         Assert.Contains("### ARCH-01", TextOf(result), StringComparison.Ordinal);
     }
 
+    // The first sample's pull request still has the older rules, without SEC-01; the branch it merges into has it.
+    [Fact]
+    public async Task Team_rules_come_from_the_branch_the_pull_request_merges_into()
+    {
+        await using var client = await ConnectAsync(SamplePullRequest);
+
+        var result = await CallAsync(client, "get_team_rules");
+
+        AssertSucceeded(result);
+        Assert.Contains("### SEC-01", TextOf(result), StringComparison.Ordinal);
+    }
+
     [Fact]
     public async Task Without_the_pull_request_header_tools_fail()
     {

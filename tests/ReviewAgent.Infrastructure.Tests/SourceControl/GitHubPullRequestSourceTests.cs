@@ -133,6 +133,24 @@ public sealed class GitHubPullRequestSourceTests : IDisposable
         Assert.Contains(request.Headers.Accept, accept => accept.MediaType == "application/vnd.github.raw+json");
     }
 
+    // The branch comes from the pull request's details; the latest rules apply, also to older pull requests.
+    [Fact]
+    public async Task File_of_the_base_is_read_from_the_branch_the_pull_request_merges_into()
+    {
+        const string rulesPath = "/repos/test/demo/contents/.review/rules.md?ref=main";
+        _handler.Respond(PullRequestPath, HttpStatusCode.OK, PullRequestJson);
+        _handler.Respond(rulesPath, HttpStatusCode.OK, "### ARCH-01");
+
+        var content = await Source.GetFileAsync(
+            PullRequest,
+            RepositoryVersion.Base,
+            ".review/rules.md",
+            CancellationToken.None);
+
+        Assert.Equal("### ARCH-01", content);
+        Assert.Equal(rulesPath, _handler.Requests[^1].RequestUri!.PathAndQuery);
+    }
+
     [Fact]
     public async Task Missing_file_returns_null()
     {

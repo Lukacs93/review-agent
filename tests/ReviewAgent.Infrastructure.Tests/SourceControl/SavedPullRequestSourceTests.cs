@@ -14,6 +14,9 @@ public sealed class SavedPullRequestSourceTests : IDisposable
     private const string PullRequestFolder = "test/demo/1";
     private const string ChangedFilePath = "src/Order.cs";
     private const string ChangedFileContent = "public sealed class Order;";
+    private const string RulesPath = ".review/rules.md";
+    private const string BaseRules = "### ARCH-01";
+    private const string ChangedRules = "### ARCH-01 changed by the pull request";
 
     private const string PullRequestJson = """
         {
@@ -33,6 +36,8 @@ public sealed class SavedPullRequestSourceTests : IDisposable
     {
         _root.WriteFile($"{PullRequestFolder}/pull-request.json", PullRequestJson);
         _root.WriteFile($"{PullRequestFolder}/repository/{ChangedFilePath}", ChangedFileContent);
+        _root.WriteFile($"{PullRequestFolder}/repository/{RulesPath}", ChangedRules);
+        _root.WriteFile($"{PullRequestFolder}/base/{RulesPath}", BaseRules);
     }
 
     private static PullRequestRef PullRequest => new(RepositoryOwner, RepositoryName, PullRequestNumber);
@@ -76,6 +81,14 @@ public sealed class SavedPullRequestSourceTests : IDisposable
             CancellationToken.None);
 
         Assert.Equal(ChangedFileContent, content);
+    }
+
+    [Fact]
+    public async Task File_of_the_base_is_read_from_the_saved_base()
+    {
+        var content = await Source.GetFileAsync(PullRequest, RepositoryVersion.Base, RulesPath, CancellationToken.None);
+
+        Assert.Equal(BaseRules, content);
     }
 
     [Fact]
