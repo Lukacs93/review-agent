@@ -37,7 +37,7 @@ public sealed class ReviewAgentRunnerTests : IDisposable
     private const string RejectionReason = "Line 10 only declares the class; the DbContext is on line 11.";
 
     // Short, so the test does not wait long for a model that never answers.
-    private static readonly TimeSpan ShortTimeout = TimeSpan.FromMilliseconds(200);
+    private static TimeSpan ShortTimeout => TimeSpan.FromMilliseconds(200);
 
     private readonly SqliteTestDatabase _database = new();
     private readonly EfReviewRunRepository _repository;

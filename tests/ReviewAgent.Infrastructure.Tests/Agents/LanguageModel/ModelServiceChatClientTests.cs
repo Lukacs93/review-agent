@@ -5,7 +5,7 @@ namespace ReviewAgent.Infrastructure.Tests.Agents.LanguageModel;
 
 public sealed class ModelServiceChatClientTests
 {
-    private static readonly ChatMessage[] Messages = [new(ChatRole.User, "Review the pull request.")];
+    private static ChatMessage[] Messages => [new(ChatRole.User, "Review the pull request.")];
 
     [Fact]
     public async Task Error_of_the_model_call_is_marked_as_the_model_services()
