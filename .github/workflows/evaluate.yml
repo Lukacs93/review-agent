@@ -1,0 +1,88 @@
+name: Evaluate
+
+# Measures review-agent on the evaluation tasks (evaluation/dataset.jsonl): reviews every task several times, grades
+# the comments against the expected ones and adds the results up. Started by hand only, as every run uses the
+# model's daily quota. A measurement that stops (the model's quota ran out, the model's API failed) continues in a
+# new run: the same execution name, and continue-from-run set to the stopped run's ID.
+on:
+  workflow_dispatch:
+    inputs:
+      execution:
+        description: The measurement's name, for example baseline. The same name continues a stopped measurement.
+        required: true
+        type: string
+      runs:
+        description: How many times each task is reviewed, in a new measurement.
+        required: false
+        default: 3
+        type: number
+      continue-from-run:
+        description: >-
+          To continue a stopped measurement, the ID of its workflow run (the number after /runs/ in its address).
+          Empty for a new measurement.
+        required: false
+        type: string
+      continue-despite-changes:
+        description: Continue although review-agent's commit changed since the measurement started.
+        required: false
+        default: false
+        type: boolean
+
+permissions:
+  contents: read
+  # Downloading the results of an earlier run.
+  actions: read
+
+# One measurement at a time: they share the model's quota.
+concurrency:
+  group: evaluate
+  cancel-in-progress: false
+
+env:
+  RESULTS_DIRECTORY: evaluation/results
+  # The inputs go to the scripts as environment variables, never pasted into the commands.
+  EXECUTION: ${{ inputs.execution }}
+  RUNS: ${{ inputs.runs }}
+  CONTINUE_DESPITE_CHANGES: ${{ inputs.continue-despite-changes }}
+
+jobs:
+  evaluate:
+    name: Evaluate
+    runs-on: ubuntu-latest
+    env:
+      Agent__ApiKey: ${{ secrets.REVIEW_AGENT_MODEL_API_KEY }}
+
+    steps:
+      - name: Check out
+        uses: actions/checkout@v6
+
+      - name: Set up .NET
+        uses: actions/setup-dotnet@v5
+        with:
+          global-json-file: global.json
+
+      - name: Take over the results of the stopped run
+        if: inputs.continue-from-run != ''
+        uses: actions/download-artifact@v8
+        with:
+          name: evaluation-${{ inputs.execution }}
+          path: ${{ env.RESULTS_DIRECTORY }}
+          run-id: ${{ inputs.continue-from-run }}
+          github-token: ${{ github.token }}
+
+      - name: Measure
+        run: |
+          options=(--execution "$EXECUTION" --runs "$RUNS")
+          if [[ "$CONTINUE_DESPITE_CHANGES" == "true" ]]; then
+            options+=(--continue-despite-changes)
+          fi
+          dotnet run --project tools/ReviewAgent.Evaluation --configuration Release -- "${options[@]}"
+
+      # The runs, the HTML report, the summary and the services' logs; the next run of a stopped measurement starts
+      # from them.
+      - name: Keep the results
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: evaluation-${{ inputs.execution }}
+          path: ${{ env.RESULTS_DIRECTORY }}
