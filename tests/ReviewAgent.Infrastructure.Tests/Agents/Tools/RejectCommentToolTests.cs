@@ -1,3 +1,4 @@
+using Microsoft.Extensions.AI;
 using ReviewAgent.Application.Interfaces;
 using ReviewAgent.Application.Reviews.Commands.RejectComment;
 using ReviewAgent.Infrastructure.Agents.Tools;
@@ -33,6 +34,18 @@ public sealed class RejectCommentToolTests
         var result = await Tool.RejectAsync(commentId, Reason);
 
         Assert.Equal(RejectCommentErrors.UnknownComment(commentId), result);
+        Assert.Empty(_handler.Commands);
+    }
+
+    // The model's call misses a required argument: it gets what is wrong instead of a failed call.
+    [Fact]
+    public async Task Call_without_a_required_argument_is_answered_with_what_is_missing()
+    {
+        var result = await Tool.AsAIFunction().InvokeAsync(new AIFunctionArguments { ["reason"] = Reason });
+
+        var answer = Assert.IsType<string>(result);
+        Assert.StartsWith("The call was not run", answer, StringComparison.Ordinal);
+        Assert.Contains("commentId", answer, StringComparison.Ordinal);
         Assert.Empty(_handler.Commands);
     }
 
