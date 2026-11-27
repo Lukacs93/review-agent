@@ -57,7 +57,8 @@ internal sealed class ProposeCommentTool
         _proposeComment = proposeComment;
     }
 
-    public AIFunction AsAIFunction() => AIFunctionFactory.Create(ProposeAsync, Name, Description);
+    public AIFunction AsAIFunction() =>
+        new ArgumentErrorReportingFunction(AIFunctionFactory.Create(ProposeAsync, Name, Description));
 
     public async Task<string> ProposeAsync(
         [Description("Path of a changed file, as listed by get_pull_request.")] string path,

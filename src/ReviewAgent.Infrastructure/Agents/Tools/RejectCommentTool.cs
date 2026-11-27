@@ -34,7 +34,8 @@ internal sealed class RejectCommentTool
         _rejectComment = rejectComment;
     }
 
-    public AIFunction AsAIFunction() => AIFunctionFactory.Create(RejectAsync, Name, Description);
+    public AIFunction AsAIFunction() =>
+        new ArgumentErrorReportingFunction(AIFunctionFactory.Create(RejectAsync, Name, Description));
 
     public async Task<string> RejectAsync(
         [Description("ID of the proposed comment, as listed in the task.")] string commentId,
