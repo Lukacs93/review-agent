@@ -42,6 +42,20 @@ public sealed class AgentOptionsTests
         Assert.Contains(AgentErrors.McpServerUrlRequired, messages);
     }
 
+    [Fact]
+    public void Requests_per_minute_must_allow_at_least_one_request()
+    {
+        var errors = Validate(new AgentOptions
+        {
+            Endpoint = new Uri("https://model.example/"),
+            Model = "test-model",
+            McpServerUrl = new Uri("http://localhost:5090/"),
+            RequestsPerMinute = 0,
+        });
+
+        Assert.Equal(AgentErrors.RequestsPerMinuteOutOfRange, Assert.Single(errors).ErrorMessage);
+    }
+
     // The same check ValidateDataAnnotations runs at startup.
     private static List<ValidationResult> Validate(AgentOptions options)
     {
