@@ -12,6 +12,7 @@ using ReviewAgent.Application.Reviews.Publishing;
 using ReviewAgent.Application.Reviews.Queries.GetRunLog;
 using ReviewAgent.Application.SourceControl;
 using ReviewAgent.Infrastructure.Agents;
+using ReviewAgent.Infrastructure.Agents.Errors;
 using ReviewAgent.Infrastructure.Agents.LanguageModel;
 using ReviewAgent.Infrastructure.Agents.Tools;
 using ReviewAgent.Infrastructure.Logging;
@@ -194,9 +195,18 @@ public static class DependencyInjection
         // No retry handler here: an MCP call that half succeeded must not be repeated behind the model's back.
         services.AddHttpClient(McpPullRequestToolsConnector.HttpClientName);
 
+        services.AddSingleton(serviceProvider => new ModelRateLimiter(
+            serviceProvider.GetRequiredService<IOptions<AgentOptions>>().Value.RequestsPerMinute
+                ?? throw new InvalidOperationException(AgentErrors.RequestsPerMinuteNotSet),
+            TimeSpan.FromMinutes(1),
+            serviceProvider.GetRequiredService<TimeProvider>(),
+            serviceProvider.GetRequiredService<ILogger<ModelRateLimiter>>()));
+
         // The model's requests: the same standard resilience handler as GitHub's (retries with backoff on 429, 503
         // and timeouts, honouring Retry-After, and a circuit breaker), with timeouts long enough for a model.
         // HttpClient's own 100-second timeout would cut through the retries, so the handler's timeouts replace it.
+        // With Agent:RequestsPerMinute, the handler's rate limiter, the first of its steps, holds a request back until
+        // the service allows it, so the wait is not counted against the request's timeouts.
         services.AddHttpClient(
                 OpenAICompatibleChatClientFactory.HttpClientName,
                 client => client.Timeout = Timeout.InfiniteTimeSpan)
@@ -210,6 +220,13 @@ public static class DependencyInjection
 
                 // The handler requires the breaker to sample at least two attempts' worth of time.
                 resilience.CircuitBreaker.SamplingDuration = agent.RequestTimeout * 2;
+
+                if (agent.RequestsPerMinute is not null)
+                {
+                    var limiter = serviceProvider.GetRequiredService<ModelRateLimiter>();
+                    resilience.RateLimiter.RateLimiter = arguments =>
+                        limiter.AcquireAsync(arguments.Context.CancellationToken);
+                }
             });
 
         services.AddSingleton<IAgentChatClientFactory, OpenAICompatibleChatClientFactory>();

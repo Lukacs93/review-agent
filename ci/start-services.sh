@@ -2,7 +2,8 @@
 # Builds review-agent and starts the MCP server and the API in the background, as the AppHost does locally, then
 # waits until both answer their health checks. Every setting comes from environment variables
 # (PullRequests__Source, Agent__ApiKey, Storage__DataDirectory and the others the workflow sets).
-# REVIEW_AGENT_MODEL_ENDPOINT and REVIEW_AGENT_MODEL, when set, replace the model review-agent is set up with.
+# REVIEW_AGENT_MODEL_ENDPOINT, REVIEW_AGENT_MODEL and REVIEW_AGENT_MODEL_REQUESTS_PER_MINUTE, when set, replace the
+# model review-agent is set up with and the number of requests a minute its plan allows.
 #
 # Usage: start-services.sh <review-agent checkout> <log directory>
 set -euo pipefail
@@ -24,6 +25,9 @@ if [[ -n "${REVIEW_AGENT_MODEL_ENDPOINT:-}" ]]; then
 fi
 if [[ -n "${REVIEW_AGENT_MODEL:-}" ]]; then
   export Agent__Model="$REVIEW_AGENT_MODEL"
+fi
+if [[ -n "${REVIEW_AGENT_MODEL_REQUESTS_PER_MINUTE:-}" ]]; then
+  export Agent__RequestsPerMinute="$REVIEW_AGENT_MODEL_REQUESTS_PER_MINUTE"
 fi
 
 mkdir -p "$log_directory"

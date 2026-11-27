@@ -38,6 +38,12 @@ on:
         description: The model's name at that API; empty keeps review-agent's own setting.
         type: string
         default: ""
+      model-requests-per-minute:
+        description: >-
+          At most how many requests a minute the model's plan allows (Agent:RequestsPerMinute); empty keeps
+          review-agent's own setting.
+        type: string
+        default: ""
     secrets:
       model-api-key:
         description: The API key of the model the agents call.
@@ -54,6 +60,7 @@ env:
   # Passed on by start-services.sh only when set: an empty setting would replace review-agent's own with nothing.
   REVIEW_AGENT_MODEL_ENDPOINT: ${{ inputs.model-endpoint }}
   REVIEW_AGENT_MODEL: ${{ inputs.model }}
+  REVIEW_AGENT_MODEL_REQUESTS_PER_MINUTE: ${{ inputs.model-requests-per-minute }}
 
 jobs:
   review:

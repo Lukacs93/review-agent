@@ -50,6 +50,13 @@ internal sealed class AgentOptions : IValidatableObject
     public TimeSpan Timeout { get; init; } = TimeSpan.FromMinutes(5);
 
     /// <summary>
+    /// At most how many requests a minute the application sends to the model, as the model's service and plan allow;
+    /// the others wait for their turn instead of being refused (429). Not set: no limit.
+    /// </summary>
+    [Range(1, int.MaxValue, ErrorMessage = AgentErrors.RequestsPerMinuteOutOfRange)]
+    public int? RequestsPerMinute { get; init; }
+
+    /// <summary>
     /// Whether the traces of the model calls include their content: the prompts, the reviewed code and the model's
     /// answers. Off by default.
     /// </summary>

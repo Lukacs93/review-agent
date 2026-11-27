@@ -18,6 +18,11 @@ internal static class AgentErrors
 
     public const string TimeoutOutOfRange = "Agent:Timeout must be between 10 seconds and 1 hour.";
 
+    public const string RequestsPerMinuteOutOfRange =
+        "Agent:RequestsPerMinute must be at least 1, or not set for no limit.";
+
+    public const string RequestsPerMinuteNotSet = "The model's rate limiter is only used with Agent:RequestsPerMinute.";
+
     public const string RequestTimeoutOutOfRange = "Agent:RequestTimeout must be between 10 seconds and 30 minutes.";
 
     public const string RequestTimeoutNotShorter =
