@@ -20,6 +20,7 @@ src/ReviewAgent.Api/data/
 *.db-shm
 *.db-wal
 appsettings.*.local.json
+evaluation/results/
 .env
 
 # Frontend

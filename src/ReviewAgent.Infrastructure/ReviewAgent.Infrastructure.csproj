@@ -25,6 +25,8 @@
 
   <ItemGroup>
     <InternalsVisibleTo Include="ReviewAgent.Infrastructure.Tests" />
+    <!-- The evaluation tool reads the team's rules with the same parser as the agent. -->
+    <InternalsVisibleTo Include="ReviewAgent.Evaluation" />
   </ItemGroup>
 
   <ItemGroup>
